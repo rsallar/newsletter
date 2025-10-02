@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <!-- Aquí incluimos el contenido del fichero CSS -->
+    <?!= include('src/web/stylesheet.html'); ?>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Configuración de la Newsletter</h1>
+      
+      <h2>Fase 1: Configurar Palabras Clave</h2>
+
+      <h3>Palabras Clave Configuradas</h3>
+      <div id="keywordList"><p class="list-item-empty">Cargando palabras clave...</p></div>
+      <div id="statusKeywords" class="status-message"></div>
+      
+      <form id="configForm">
+        <label for="keywords">Editar lista de Palabras Clave (separadas por comas):</label>
+        <input type="text" id="keywords" name="keywords" placeholder="Ej: inteligencia artificial, apps script, computación cuántica">
+        <br><br>
+        <input type="submit" value="Guardar y Actualizar Configuración">
+      </form>
+      <div id="statusFase1" class="status-message"></div>
+      <div id="instructionsFase1" class="status-message"></div>
+
+      <h3>Activadores ("Crons") Actuales</h3>
+      <div id="triggerList"><p class="list-item-empty">Cargando activadores...</p></div>
+
+      <hr>
+
+      <h2>Acciones Manuales</h2>
+      <div class="manual-actions-container">
+        <button id="manualRecopilarBtn" class="btn btn-info btn-block">Recopilar Contenido Ahora</button>
+        <button id="manualGenerarBtn" class="btn btn-success btn-block">Generar y Enviar Newsletter Ahora</button>
+      </div>
+      <div id="statusManual" class="status-message"></div>
+
+      <hr>
+      
+      <h2>Gestión de Correos Electrónicos</h2>
+      <form id="emailForm">
+        <label for="email">Correo Electrónico:</label>
+        <input type="email" id="email" name="email" placeholder="nombre@ejemplo.com" required>
+        <br><br>
+        <input type="submit" value="Agregar Correo">
+      </form>
+      <div id="statusEmail" class="status-message"></div>
+      <h3>Lista de Correos</h3>
+      <div id="emailList"><p class="list-item-empty">Cargando lista de correos...</p></div>
+    </div>
+
+    <script>
+      /**
+       * Muestra un mensaje de estado. Si el timeout es 0, es permanente.
+       */
+      function showStatus(elementId, message, isError = false, timeout = 6000) {
+        const statusDiv = document.getElementById(elementId);
+        statusDiv.innerHTML = message;
+        statusDiv.style.color = isError ? 'var(--danger-color)' : 'var(--success-color)';
+        statusDiv.style.backgroundColor = isError ? '#f8d7da' : '#d4edda';
+        statusDiv.style.borderColor = isError ? '#f5c6cb' : '#c3e6cb';
+        statusDiv.style.border = '1px solid';
+
+        if(message.includes("ACCIÓN MANUAL REQUERIDA")){
+            statusDiv.classList.add("permanent-instructions");
+        } else {
+            statusDiv.classList.remove("permanent-instructions");
+        }
+
+        if (timeout > 0) {
+          setTimeout(() => { 
+            statusDiv.innerText = ''; 
+            statusDiv.style.border = 'none'; 
+            statusDiv.style.backgroundColor = 'transparent'; 
+          }, timeout);
+        }
+      }
+      
+      /**
+       * Carga las keywords actuales y las muestra en la lista y en el campo de texto.
+       */
+      function cargarKeywordsActuales() {
+        google.script.run
+          .withSuccessHandler(function(keywords) {
+            document.getElementById('keywords').value = keywords;
+            const listDiv = document.getElementById('keywordList');
+            const keywordsArray = keywords.split(',').map(k => k.trim()).filter(Boolean);
+
+            if (keywordsArray.length === 0) {
+              listDiv.innerHTML = '<p class="list-item-empty">No hay palabras clave configuradas.</p>';
+              return;
+            }
+
+            let html = '<ul class="list">';
+            keywordsArray.forEach(function(kw) {
+              html += `<li class="list-item"><span>${kw}</span> <button class="btn delete-btn" data-keyword="${kw}">Eliminar</button></li>`;
+            });
+            html += '</ul>';
+            listDiv.innerHTML = html;
+          })
+          .withFailureHandler(function(error) {
+            showStatus('statusKeywords', 'Error al cargar las keywords: ' + error.message, true);
+          })
+          .obtenerKeywordsActuales();
+      }
+
+      /**
+       * Carga y muestra la lista de activadores del proyecto.
+       */
+      function cargarTriggers() {
+        google.script.run
+          .withSuccessHandler(function(triggers) {
+            const listDiv = document.getElementById('triggerList');
+            if (triggers.length === 0) {
+              listDiv.innerHTML = '<p class="list-item-empty">No hay activadores configurados.</p>';
+              return;
+            }
+            let html = '<ul class="list">';
+            triggers.forEach(function(trigger) {
+              html += `<li class="list-item"><span><strong>Función:</strong> ${trigger.handlerFunction}, <strong>Tipo:</strong> ${trigger.eventType} (${trigger.triggerSource})</span></li>`;
+            });
+            html += '</ul>';
+            listDiv.innerHTML = html;
+          })
+          .withFailureHandler(function(error) {
+            document.getElementById('triggerList').innerHTML = `<p class="list-item-empty" style="color:var(--danger-color);">Error al cargar los activadores: ${error.message}</p>`;
+          })
+          .obtenerTriggers();
+      }
+      
+      /**
+       * Carga y muestra la lista de correos electrónicos.
+       */
+      function cargarCorreos() {
+        google.script.run
+          .withSuccessHandler(function(correos) {
+            const listDiv = document.getElementById('emailList');
+            if (correos.length === 0) {
+              listDiv.innerHTML = '<p class="list-item-empty">No hay correos en la lista.</p>';
+              return;
+            }
+            let html = '<ul class="list">';
+            correos.forEach(function(correo) {
+              html += `<li class="list-item"><span>${correo}</span> <button class="btn delete-btn" data-email="${correo}">Eliminar</button></li>`;
+            });
+            html += '</ul>';
+            listDiv.innerHTML = html;
+          })
+          .withFailureHandler(function(error) {
+             showStatus('statusEmail', 'Error al cargar los correos: ' + error.message, true);
+          })
+          .obtenerCorreos();
+      }
+
+      // Cargar los datos iniciales cuando la página se carga
+      document.addEventListener('DOMContentLoaded', function() {
+        cargarKeywordsActuales();
+        cargarTriggers();
+        cargarCorreos();
+      });
+
+      // --- MANEJADORES DE EVENTOS ---
+
+      // Formulario de configuración
+      document.getElementById('configForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const submitBtn = this.querySelector('input[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.value = "Guardando...";
+        const keywords = document.getElementById('keywords').value;
+        
+        google.script.run
+          .withSuccessHandler(function(response) {
+            showStatus('statusFase1', response.successMessage, false, 6000);
+            showStatus('instructionsFase1', response.instructions, false, 0); 
+            cargarTriggers();
+            cargarKeywordsActuales(); 
+            submitBtn.disabled = false;
+            submitBtn.value = "Guardar y Actualizar Configuración";
+          })
+          .withFailureHandler(function(error) {
+            showStatus('statusFase1', 'Error: ' + error.message, true);
+            submitBtn.disabled = false;
+            submitBtn.value = "Guardar y Actualizar Configuración";
+          })
+          .guardarConfiguracion(keywords);
+      });
+      
+      // Eliminar keywords
+      document.getElementById('keywordList').addEventListener('click', function(e) {
+        if (e.target && e.target.classList.contains('delete-btn')) {
+            const keyword = e.target.dataset.keyword;
+            if (confirm(`¿Estás seguro de que quieres eliminar la palabra clave "${keyword}"?`)) {
+                e.target.disabled = true;
+                e.target.innerText = 'Eliminando...';
+                google.script.run
+                    .withSuccessHandler(function(response) {
+                        showStatus('statusKeywords', response, false, 8000);
+                        cargarKeywordsActuales();
+                    })
+                    .withFailureHandler(function(error) {
+                        showStatus('statusKeywords', 'Error: ' + error.message, true);
+                        e.target.disabled = false;
+                        e.target.innerText = 'Eliminar';
+                    })
+                    .eliminarKeyword(keyword);
+            }
+        }
+      });
+
+      // Botón de Recopilación Manual
+      document.getElementById('manualRecopilarBtn').addEventListener('click', function() {
+        this.disabled = true;
+        this.innerText = 'Recopilando...';
+        google.script.run
+          .withSuccessHandler(function(response) {
+            showStatus('statusManual', response, false, 8000);
+          })
+          .withFailureHandler(function(error) {
+            showStatus('statusManual', error.message, true, 8000);
+          })
+          .withFinally(function() {
+            document.getElementById('manualRecopilarBtn').disabled = false;
+            document.getElementById('manualRecopilarBtn').innerText = 'Recopilar Contenido Ahora';
+          })
+          .ejecutarRecopilacionManual();
+      });
+      
+      // Botón de Generación/Envío Manual
+      document.getElementById('manualGenerarBtn').addEventListener('click', function() {
+        this.disabled = true;
+        this.innerText = 'Generando y Enviando...';
+         google.script.run
+          .withSuccessHandler(function(response) {
+            showStatus('statusManual', response, false, 8000);
+          })
+          .withFailureHandler(function(error) {
+            showStatus('statusManual', error.message, true, 8000);
+          })
+          .withFinally(function() {
+            document.getElementById('manualGenerarBtn').disabled = false;
+            document.getElementById('manualGenerarBtn').innerText = 'Generar y Enviar Newsletter Ahora';
+          })
+          .ejecutarGeneracionNewsletterManual();
+      });
+
+      // Formulario de correos
+      document.getElementById('emailForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const emailInput = document.getElementById('email');
+        const email = emailInput.value.trim();
+        if (!email) return;
+        
+        const submitBtn = this.querySelector('input[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.value = "Agregando...";
+
+        google.script.run
+          .withSuccessHandler(function(response) {
+            showStatus('statusEmail', response);
+            emailInput.value = '';
+            cargarCorreos();
+            submitBtn.disabled = false;
+            submitBtn.value = "Agregar Correo";
+          })
+          .withFailureHandler(function(error) {
+            showStatus('statusEmail', 'Error: ' + error.message, true);
+            submitBtn.disabled = false;
+            submitBtn.value = "Agregar Correo";
+          })
+          .agregarCorreo(email);
+      });
+      
+      // Eliminar correos
+      document.getElementById('emailList').addEventListener('click', function(e) {
+        if (e.target && e.target.classList.contains('delete-btn')) {
+          e.target.disabled = true; 
+          const email = e.target.dataset.email;
+          if (confirm(`¿Estás seguro de que quieres eliminar el correo "${email}"?`)) {
+            google.script.run
+              .withSuccessHandler(function(response) {
+                showStatus('statusEmail', response);
+                cargarCorreos();
+              })
+              .withFailureHandler(function(error) {
+                showStatus('statusEmail', 'Error: ' + error.message, true);
+                e.target.disabled = false; 
+              })
+              .eliminarCorreo(email);
+          } else {
+            e.target.disabled = false;
+          }
+        }
+      });
+    </script>
+  </body>
+</html>
