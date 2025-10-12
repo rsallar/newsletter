@@ -13,18 +13,21 @@ function guardarConfiguracion(keywords) {
 
   const keywordsArray = keywords.split(',').map(k => k.trim()).filter(Boolean); // filter(Boolean) elimina strings vacíos
   
-  const instruccionesAlertas = crearAlertaGoogle(keywordsArray);
-  crearOActualizarFiltroGmail(keywordsArray);
-  configurarTriggers(); // Se llama a la función actualizada que crea AMBOS triggers
+  if (keywordsArray.length > 0) {
+    configurarTriggerUnico(); // Configura el único trigger semanal.
+  } else {
+    // Si no hay keywords, eliminamos los triggers para no ejecutar en vacío.
+    eliminarTriggers(); 
+  }
+
+  const successMessage = `¡Éxito! Configuración guardada. El activador semanal ha sido ${keywordsArray.length > 0 ? 'creado o actualizado' : 'eliminado'}.`;
   
-  const successMessage = `¡Éxito! Configuración guardada. El filtro de Gmail y los activadores (diario y semanal) han sido actualizados.`;
-  
-  // Devolvemos un objeto para separar el mensaje temporal de las instrucciones permanentes
   return {
     successMessage: successMessage,
-    instructions: instruccionesAlertas
+    instructions: "El sistema ahora buscará noticias y enviará la newsletter una vez por semana (Viernes a las 9 AM)."
   };
 }
+
 
 /**
  * Elimina una palabra clave específica de la configuración.
@@ -48,9 +51,12 @@ function eliminarKeyword(keywordToDelete) {
   const newKeywords = keywordsArray.join(', ');
   sheet.getRange(1, 2).setValue(newKeywords);
   
-  crearOActualizarFiltroGmail(keywordsArray);
+  // Si nos quedamos sin keywords, eliminamos el trigger.
+  if (keywordsArray.filter(Boolean).length === 0) {
+    eliminarTriggers();
+  }
 
-  return `Palabra clave "${keywordToDelete}" eliminada. El filtro de Gmail ha sido actualizado. Recuerda eliminar también la alerta manual en Google Alerts.`;
+  return `Palabra clave "${keywordToDelete}" eliminada.`;
 }
 
 
@@ -73,32 +79,40 @@ function obtenerKeywordsActuales() {
 }
 
 /**
- * Crea o actualiza los triggers del proyecto: uno diario y uno semanal.
+ * Crea o actualiza el único trigger semanal del proyecto.
  */
-function configurarTriggers() {
+function configurarTriggerUnico() {
+  const handlerFunction = 'ejecutarProcesoCompleto';
+  // Primero, eliminamos cualquier trigger existente para esta función para evitar duplicados.
   const triggers = ScriptApp.getProjectTriggers();
-  const managedFunctions = ['recopilarContenido', 'generarNewsletter'];
-
-  // Eliminar todos los triggers gestionados por este script para evitar duplicados
   for (const trigger of triggers) {
-    if (managedFunctions.includes(trigger.getHandlerFunction())) {
+    if (trigger.getHandlerFunction() === handlerFunction) {
       ScriptApp.deleteTrigger(trigger);
     }
   }
 
-  // Crear el trigger diario para recopilar contenido
-  ScriptApp.newTrigger('recopilarContenido')
-      .timeBased()
-      .everyDays(1)
-      .atHour(3)
-      .create();
-
-  // Crear el trigger semanal para generar y enviar la newsletter
-  ScriptApp.newTrigger('generarNewsletter')
+  // Crear el trigger semanal para ejecutar todo el proceso
+  ScriptApp.newTrigger(handlerFunction)
       .timeBased()
       .onWeekDay(ScriptApp.WeekDay.FRIDAY) // Se ejecutará cada viernes
       .atHour(9) // a las 9 de la mañana
       .create();
+  
+  console.log(`Trigger semanal para la función '${handlerFunction}' creado/actualizado.`);
+}
+
+/**
+ * Elimina todos los triggers gestionados por este script.
+ */
+function eliminarTriggers() {
+    const triggers = ScriptApp.getProjectTriggers();
+    const managedFunctions = ['ejecutarProcesoCompleto', 'recopilarContenido', 'generarNewsletter']; // Incluimos las antiguas por si acaso
+    for (const trigger of triggers) {
+        if (managedFunctions.includes(trigger.getHandlerFunction())) {
+            ScriptApp.deleteTrigger(trigger);
+        }
+    }
+    console.log("Todos los triggers gestionados han sido eliminados.");
 }
 
 

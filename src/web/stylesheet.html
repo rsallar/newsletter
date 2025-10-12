@@ -242,4 +242,37 @@
     font-style: italic;
     padding: 10px;
   }
+
+  /* --- NUEVOS ESTILOS PARA EL LOG --- */
+  .log-container {
+    background-color: #212529; /* Fondo oscuro tipo consola */
+    color: #f8f9fa; /* Texto claro */
+    border: 1px solid #495057;
+    padding: 15px;
+    font-family: "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 0.9em;
+    white-space: pre-wrap;
+    max-height: 250px;
+    overflow-y: auto;
+    display: none; /* Empieza oculto */
+    border-radius: 5px;
+    margin-top: 15px;
+  }
+  .log-container p {
+    margin: 0 0 5px 0;
+    padding: 0;
+    border-left: 3px solid #6c757d;
+    padding-left: 10px;
+  }
+  .log-container .log-error {
+    color: #ff8b8b; /* Rojo más visible en fondo oscuro */
+    font-weight: bold;
+    border-left-color: var(--danger-color);
+  }
+  .log-container .log-success {
+    color: #7ee08d; /* Verde más visible en fondo oscuro */
+    font-weight: bold;
+    border-left-color: var(--success-color);
+  }
+
 </style>

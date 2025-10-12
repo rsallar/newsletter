@@ -15,9 +15,9 @@
         <p>Cargando enlace a la hoja de cálculo...</p>
       </div>
       
-      <h2>Fase 1: Configurar Palabras Clave</h2>
+      <h2>Configurar Palabras Clave y Automatización</h2>
 
-      <h3>Palabras Clave Configuradas</h3>
+      <h3>Palabras Clave Actuales</h3>
       <div id="keywordList"><p class="list-item-empty">Cargando palabras clave...</p></div>
       <div id="statusKeywords" class="status-message"></div>
       
@@ -25,22 +25,24 @@
         <label for="keywords">Editar lista de Palabras Clave (separadas por comas):</label>
         <input type="text" id="keywords" name="keywords" placeholder="Ej: inteligencia artificial, apps script, computación cuántica">
         <br><br>
-        <input type="submit" value="Guardar y Actualizar Configuración">
+        <input type="submit" value="Guardar Configuración y Activar Proceso Semanal">
       </form>
       <div id="statusFase1" class="status-message"></div>
       <div id="instructionsFase1" class="status-message"></div>
 
-      <h3>Activadores ("Crons") Actuales</h3>
-      <div id="triggerList"><p class="list-item-empty">Cargando activadores...</p></div>
+      <h3>Activador Semanal Configurado</h3>
+      <div id="triggerList"><p class="list-item-empty">Cargando activador...</p></div>
 
       <hr>
 
-      <h2>Acciones Manuales</h2>
+      <h2>Acción Manual</h2>
+      <p>Si no quieres esperar al activador semanal, puedes ejecutar todo el proceso ahora mismo. Si encuentras errores relacionados con el "modelo" de IA, usa el botón 'Listar Modelos' para ver los que están disponibles para tu API Key.</p>
       <div class="manual-actions-container">
-        <button id="manualRecopilarBtn" class="btn btn-info btn-block">Recopilar Contenido Ahora</button>
-        <button id="manualGenerarBtn" class="btn btn-success btn-block">Generar y Enviar Newsletter Ahora</button>
+        <button id="manualProcesoBtn" class="btn btn-success" style="flex-grow: 1;">Buscar Noticias y Enviar Newsletter</button>
+        <button id="listModelsBtn" class="btn btn-info">Listar Modelos de IA</button>
       </div>
-      <div id="statusManual" class="status-message"></div>
+      <!-- Este contenedor mostrará los logs del proceso manual -->
+      <div id="statusManual" class="log-container"></div>
 
       <hr>
       
@@ -113,12 +115,12 @@
           .withSuccessHandler(function(triggers) {
             const listDiv = document.getElementById('triggerList');
             if (triggers.length === 0) {
-              listDiv.innerHTML = '<p class="list-item-empty">No hay activadores configurados.</p>';
+              listDiv.innerHTML = '<p class="list-item-empty">No hay activadores configurados. Guarda tus palabras clave para crear uno.</p>';
               return;
             }
             let html = '<ul class="list">';
             triggers.forEach(function(trigger) {
-              html += `<li class="list-item"><span><strong>Función:</strong> ${trigger.handlerFunction}, <strong>Tipo:</strong> ${trigger.eventType} (${trigger.triggerSource})</span></li>`;
+              html += `<li class="list-item"><span><strong>Función:</strong> ${trigger.handlerFunction}, <strong>Tipo:</strong> ${trigger.eventType} (semanal)</span></li>`;
             });
             html += '</ul>';
             listDiv.innerHTML = html;
@@ -213,12 +215,12 @@
             cargarTriggers();
             cargarKeywordsActuales(); 
             submitBtn.disabled = false;
-            submitBtn.value = "Guardar y Actualizar Configuración";
+            submitBtn.value = "Guardar Configuración y Activar Proceso Semanal";
           })
           .withFailureHandler(function(error) {
             showStatus('statusFase1', 'Error: ' + error.message, true);
             submitBtn.disabled = false;
-            submitBtn.value = "Guardar y Actualizar Configuración";
+            submitBtn.value = "Guardar Configuración y Activar Proceso Semanal";
           })
           .guardarConfiguracion(keywords);
       });
@@ -234,6 +236,7 @@
                     .withSuccessHandler(function(response) {
                         showStatus('statusKeywords', response, false);
                         cargarKeywordsActuales();
+                        cargarTriggers(); // Recargamos triggers por si se eliminó el último
                     })
                     .withFailureHandler(function(error) {
                         showStatus('statusKeywords', 'Error: ' + error.message, true);
@@ -245,40 +248,124 @@
         }
       });
 
-      // Botón de Recopilación Manual
-      document.getElementById('manualRecopilarBtn').addEventListener('click', function() {
-        this.disabled = true;
-        this.innerText = 'Recopilando...';
-        google.script.run
-          .withSuccessHandler(function(response) {
-            showStatus('statusManual', response, false);
-          })
-          .withFailureHandler(function(error) {
-            showStatus('statusManual', error.message, true);
-          })
-          .withFinally(function() {
-            document.getElementById('manualRecopilarBtn').disabled = false;
-            document.getElementById('manualRecopilarBtn').innerText = 'Recopilar Contenido Ahora';
-          })
-          .ejecutarRecopilacionManual();
+      // --- NUEVA LÓGICA PARA EL PROCESO MANUAL ---
+
+      /**
+       * Añade una línea al contenedor de logs en la interfaz.
+       * @param {string} message - El mensaje a mostrar.
+       * @param {boolean} isError - Si es un mensaje de error.
+       * @param {boolean} isSuccess - Si es un mensaje de éxito final.
+       */
+      function addLog(message, isError = false, isSuccess = false) {
+        const logContainer = document.getElementById('statusManual');
+        logContainer.style.display = 'block'; // Asegurarse de que el contenedor es visible
+
+        const logEntry = document.createElement('p');
+        logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+
+        if (isError) logEntry.className = 'log-error';
+        if (isSuccess) logEntry.className = 'log-success';
+
+        logContainer.appendChild(logEntry);
+        logContainer.scrollTop = logContainer.scrollHeight; // Auto-scroll al final
+      }
+
+      // Botón del Proceso Manual Completo
+      document.getElementById('manualProcesoBtn').addEventListener('click', function() {
+        const btn = this;
+        btn.disabled = true;
+        btn.innerText = 'Ejecutando...';
+
+        const logContainer = document.getElementById('statusManual');
+        logContainer.innerHTML = ''; // Limpiar logs anteriores
+        
+        addLog('Iniciando proceso manual...');
+
+        // Encadenamos las llamadas a las nuevas funciones del backend usando promesas
+        new Promise((resolve, reject) => {
+          addLog('Paso 1/4: Obteniendo palabras clave...');
+          google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler(reject)
+            .iniciarProcesoManual_Paso1_GetKeywords();
+        })
+        .then(keywordsArray => {
+          addLog(`  > Éxito. Keywords: ${keywordsArray.join(', ')}`);
+          addLog('Paso 2/4: Buscando noticias recientes...');
+          return new Promise((resolve, reject) => {
+            google.script.run
+              .withSuccessHandler(resolve)
+              .withFailureHandler(reject)
+              .iniciarProcesoManual_Paso2_SearchNews(keywordsArray);
+          });
+        })
+        .then(noticias => {
+          addLog(`  > Éxito. Se encontraron ${noticias.length} noticias.`);
+          addLog('Paso 3/4: Generando contenido con IA...');
+          return new Promise((resolve, reject) => {
+            google.script.run
+              .withSuccessHandler(resolve)
+              .withFailureHandler(reject)
+              .iniciarProcesoManual_Paso3_GenerateContent(noticias);
+          });
+        })
+        .then(data => {
+          addLog('  > Éxito. Contenido de la newsletter generado.');
+          addLog('Paso 4/4: Enviando newsletter por correo...');
+          return new Promise((resolve, reject) => {
+            google.script.run
+              .withSuccessHandler(resolve)
+              .withFailureHandler(reject)
+              .iniciarProcesoManual_Paso4_SendEmails(data);
+          });
+        })
+        .then(finalMessage => {
+          addLog(finalMessage, false, true); // Mensaje final de éxito
+        })
+        .catch(error => {
+          addLog(`ERROR: ${error.message}`, true); // Captura cualquier error en la cadena
+        })
+        .finally(() => {
+          // Esto se ejecuta siempre, tanto si hay éxito como si hay error
+          btn.disabled = false;
+          btn.innerText = 'Buscar Noticias y Enviar Newsletter';
+        });
       });
-      
-      // Botón de Generación/Envío Manual
-      document.getElementById('manualGenerarBtn').addEventListener('click', function() {
-        this.disabled = true;
-        this.innerText = 'Generando y Enviando...';
-         google.script.run
-          .withSuccessHandler(function(response) {
-            showStatus('statusManual', response, false);
-          })
-          .withFailureHandler(function(error) {
-            showStatus('statusManual', error.message, true);
-          })
-          .withFinally(function() {
-            document.getElementById('manualGenerarBtn').disabled = false;
-            document.getElementById('manualGenerarBtn').innerText = 'Generar y Enviar Newsletter Ahora';
-          })
-          .ejecutarGeneracionNewsletterManual();
+
+      // --- NUEVO MANEJADOR DE EVENTO PARA LISTAR MODELOS ---
+      document.getElementById('listModelsBtn').addEventListener('click', function() {
+        const btn = this;
+        btn.disabled = true;
+        btn.innerText = 'Listando...';
+        
+        const logContainer = document.getElementById('statusManual');
+        logContainer.innerHTML = ''; // Limpiar logs anteriores
+        addLog('Solicitando lista de modelos a la API de Gemini...');
+
+        const reEnableButton = () => {
+            btn.disabled = false;
+            btn.innerText = 'Listar Modelos de IA';
+        };
+
+        google.script.run
+            .withSuccessHandler(function(models) {
+                if (models && models.length > 0) {
+                    addLog('Modelos disponibles encontrados:', false, true);
+                    let modelsText = models.map(model => {
+                        return `\n- Nombre: ${model.name}\n  (Display: ${model.displayName})\n  (Métodos: ${model.supportedMethods.join(', ') || 'ninguno'})`;
+                    }).join('');
+                    addLog('--- INICIO LISTA ---' + modelsText + '\n--- FIN LISTA ---');
+                    addLog("INSTRUCCIÓN: Si el proceso automático falla por un error de 'modelo no encontrado', edita el fichero 'src/utils/gemini.gs' en tu código. Busca las dos variables 'API_URL' y reemplaza el modelo (ej: 'gemini-1.0-pro') por uno de esta lista que soporte el método 'generateContent'.", false, true);
+                } else {
+                    addLog('No se encontraron modelos disponibles. Verifica que tu API Key es correcta y está asociada a un proyecto con la API "Generative Language" habilitada.', true);
+                }
+                reEnableButton();
+            })
+            .withFailureHandler(function(error) {
+                addLog(`ERROR al listar modelos: ${error.message}`, true);
+                reEnableButton();
+            })
+            .listarModelosGemini();
       });
 
       // Formulario de correos

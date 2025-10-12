@@ -16,12 +16,45 @@ function buscarNoticiasRecientes(keywordsArray) {
   const uniqueUrls = new Set();
 
   for (const keyword of keywordsArray) {
-    // dateRestrict=w1 busca en los últimos 7 días.
-    const url = `${BASE_URL}?key=${API_KEY}&cx=${SEARCH_ENGINE_ID}&q=${encodeURIComponent(keyword)}&dateRestrict=w1`;
+    // CORRECCIÓN: La API de Google Custom Search requiere el parámetro 'sort=date'
+    // cuando se utiliza 'dateRestrict' para filtrar por fecha. La ausencia de este
+    // parámetro causa el error "400 - Invalid Argument".
+    const url = `${BASE_URL}?key=${API_KEY}&cx=${SEARCH_ENGINE_ID}&q=${encodeURIComponent(keyword)}&dateRestrict=w1&sort=date`;
     
     try {
-      const response = UrlFetchApp.fetch(url);
-      const results = JSON.parse(response.getContentText());
+      // Usamos muteHttpExceptions para capturar el error completo en lugar de que el script se detenga.
+      const options = {
+        'muteHttpExceptions': true
+      };
+      const response = UrlFetchApp.fetch(url, options);
+      const responseCode = response.getResponseCode();
+      const contentText = response.getContentText();
+
+      // Si la respuesta no es exitosa (código 200), lanzamos un error detallado.
+      if (responseCode !== 200) {
+        let errorMessage = `Error al llamar a la API de Búsqueda para "${keyword}" (Código: ${responseCode}).`;
+        let apiMessage = '';
+        try {
+          const errorData = JSON.parse(contentText);
+          if (errorData.error && errorData.error.message) {
+            apiMessage = errorData.error.message;
+            errorMessage += ` Mensaje: ${apiMessage}`;
+          }
+        } catch (e) {
+          // El texto de respuesta no era JSON, lo añadimos tal cual.
+          errorMessage += ` Respuesta: ${contentText}`;
+        }
+        
+        // Ayuda contextual para el error 400
+        if (responseCode === 400 && apiMessage.includes('invalid argument')) {
+            errorMessage += ' --- POSIBLE SOLUCIÓN: Este error también puede ocurrir si tu "Motor de Búsqueda Programable" no está configurado para "Buscar en toda la web". Por favor, verifica su configuración en el panel de control de Google.';
+        }
+        
+        // Lanzamos el error para que sea capturado por la interfaz de usuario.
+        throw new Error(errorMessage);
+      }
+
+      const results = JSON.parse(contentText);
 
       if (results.items) {
         results.items.forEach(item => {
@@ -38,10 +71,15 @@ function buscarNoticiasRecientes(keywordsArray) {
       }
     } catch (e) {
       console.error(`Error al buscar noticias para la keyword "${keyword}": ${e.message}`);
-      // Continuamos con la siguiente keyword en lugar de detener todo el proceso
+      // Re-lanzamos el error para que la ejecución manual se detenga y muestre el problema en la UI.
+      throw new Error(`Fallo en la búsqueda para la keyword "${keyword}": ${e.message}`);
     }
   }
   
   console.log(`Se encontraron ${articles.length} artículos únicos.`);
   return articles;
-}
+}
+
+function testBuscar() {
+  buscarNoticiasRecientes(['AI']);
+}
