@@ -9,6 +9,12 @@
     <div class="container">
       <h1>Configuración de la Newsletter</h1>
       
+      <!-- Contenedor para el enlace a la hoja de cálculo -->
+      <div id="spreadsheetLinkContainer" class="spreadsheet-link">
+        <a href="#" target="_blank" rel="noopener noreferrer" style="display:none;">Abrir Hoja de Cálculo de Datos</a>
+        <p>Cargando enlace a la hoja de cálculo...</p>
+      </div>
+      
       <h2>Fase 1: Configurar Palabras Clave</h2>
 
       <h3>Palabras Clave Configuradas</h3>
@@ -52,28 +58,22 @@
 
     <script>
       /**
-       * Muestra un mensaje de estado. Si el timeout es 0, es permanente.
+       * Muestra un mensaje de estado con un botón de cierre manual.
        */
-      function showStatus(elementId, message, isError = false, timeout = 6000) {
+      function showStatus(elementId, message, isError = false) {
         const statusDiv = document.getElementById(elementId);
-        statusDiv.innerHTML = message;
+        // El mensaje se envuelve en un span para que el flexbox funcione correctamente
+        statusDiv.innerHTML = `<span>${message}</span><button class="close-btn" aria-label="Cerrar">&times;</button>`;
         statusDiv.style.color = isError ? 'var(--danger-color)' : 'var(--success-color)';
         statusDiv.style.backgroundColor = isError ? '#f8d7da' : '#d4edda';
         statusDiv.style.borderColor = isError ? '#f5c6cb' : '#c3e6cb';
         statusDiv.style.border = '1px solid';
+        statusDiv.style.display = 'flex'; // Hacer visible el contenedor
 
         if(message.includes("ACCIÓN MANUAL REQUERIDA")){
             statusDiv.classList.add("permanent-instructions");
         } else {
             statusDiv.classList.remove("permanent-instructions");
-        }
-
-        if (timeout > 0) {
-          setTimeout(() => { 
-            statusDiv.innerText = ''; 
-            statusDiv.style.border = 'none'; 
-            statusDiv.style.backgroundColor = 'transparent'; 
-          }, timeout);
         }
       }
       
@@ -153,11 +153,47 @@
           .obtenerCorreos();
       }
 
+      /**
+       * Carga y muestra el enlace a la hoja de cálculo de datos del proyecto.
+       */
+      function cargarSpreadsheetUrl() {
+        google.script.run
+          .withSuccessHandler(function(url) {
+            const container = document.getElementById('spreadsheetLinkContainer');
+            const link = container.querySelector('a');
+            const loadingText = container.querySelector('p');
+            
+            if (link && url) {
+              link.href = url;
+              link.style.display = 'inline-block';
+            }
+            if (loadingText) {
+              loadingText.style.display = 'none';
+            }
+          })
+          .withFailureHandler(function(error) {
+            const container = document.getElementById('spreadsheetLinkContainer');
+            container.innerHTML = `<p style="color:var(--danger-color); font-style:italic;">No se pudo cargar el enlace a la hoja de cálculo: ${error.message}</p>`;
+          })
+          .getSpreadsheetUrl(); // Llamada a la nueva función del backend
+      }
+
+
       // Cargar los datos iniciales cuando la página se carga
       document.addEventListener('DOMContentLoaded', function() {
+        cargarSpreadsheetUrl();
         cargarKeywordsActuales();
         cargarTriggers();
         cargarCorreos();
+
+        // Event listener para los botones de cierre en las alertas
+        document.addEventListener('click', function(e) {
+          if (e.target && e.target.classList.contains('close-btn')) {
+            const statusDiv = e.target.parentElement;
+            statusDiv.innerHTML = '';
+            statusDiv.style.display = 'none'; // Ocultar el div
+          }
+        });
       });
 
       // --- MANEJADORES DE EVENTOS ---
@@ -172,8 +208,8 @@
         
         google.script.run
           .withSuccessHandler(function(response) {
-            showStatus('statusFase1', response.successMessage, false, 6000);
-            showStatus('instructionsFase1', response.instructions, false, 0); 
+            showStatus('statusFase1', response.successMessage, false);
+            showStatus('instructionsFase1', response.instructions, false); 
             cargarTriggers();
             cargarKeywordsActuales(); 
             submitBtn.disabled = false;
@@ -196,7 +232,7 @@
                 e.target.innerText = 'Eliminando...';
                 google.script.run
                     .withSuccessHandler(function(response) {
-                        showStatus('statusKeywords', response, false, 8000);
+                        showStatus('statusKeywords', response, false);
                         cargarKeywordsActuales();
                     })
                     .withFailureHandler(function(error) {
@@ -215,10 +251,10 @@
         this.innerText = 'Recopilando...';
         google.script.run
           .withSuccessHandler(function(response) {
-            showStatus('statusManual', response, false, 8000);
+            showStatus('statusManual', response, false);
           })
           .withFailureHandler(function(error) {
-            showStatus('statusManual', error.message, true, 8000);
+            showStatus('statusManual', error.message, true);
           })
           .withFinally(function() {
             document.getElementById('manualRecopilarBtn').disabled = false;
@@ -233,10 +269,10 @@
         this.innerText = 'Generando y Enviando...';
          google.script.run
           .withSuccessHandler(function(response) {
-            showStatus('statusManual', response, false, 8000);
+            showStatus('statusManual', response, false);
           })
           .withFailureHandler(function(error) {
-            showStatus('statusManual', error.message, true, 8000);
+            showStatus('statusManual', error.message, true);
           })
           .withFinally(function() {
             document.getElementById('manualGenerarBtn').disabled = false;
@@ -258,7 +294,7 @@
 
         google.script.run
           .withSuccessHandler(function(response) {
-            showStatus('statusEmail', response);
+            showStatus('statusEmail', response, false);
             emailInput.value = '';
             cargarCorreos();
             submitBtn.disabled = false;
@@ -280,7 +316,7 @@
           if (confirm(`¿Estás seguro de que quieres eliminar el correo "${email}"?`)) {
             google.script.run
               .withSuccessHandler(function(response) {
-                showStatus('statusEmail', response);
+                showStatus('statusEmail', response, false);
                 cargarCorreos();
               })
               .withFailureHandler(function(error) {

@@ -55,3 +55,12 @@ function guardarEnSpreadsheet(sheet, fila) {
   }
   sheet.appendRow(fila);
 }
+
+/**
+ * Obtiene la URL de la hoja de cálculo del proyecto para mostrarla en la UI.
+ * @returns {string} La URL de la hoja de cálculo.
+ */
+function getSpreadsheetUrl() {
+  const spreadsheet = getProjectSpreadsheet();
+  return spreadsheet.getUrl();
+}

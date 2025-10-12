@@ -33,6 +33,32 @@
     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
   }
 
+  /* Estilos para el enlace a la hoja de cálculo */
+  .spreadsheet-link {
+    text-align: center;
+    margin-bottom: 25px;
+    padding: 10px;
+    background-color: #e9ecef;
+    border-radius: 5px;
+    border: 1px solid var(--border-color);
+  }
+  
+  .spreadsheet-link a {
+    text-decoration: none;
+    font-weight: bold;
+    color: var(--primary-color);
+    padding: 8px 15px;
+    border: 1px solid var(--primary-color);
+    border-radius: 5px;
+    background-color: var(--white-color);
+    transition: background-color 0.2s, color 0.2s;
+  }
+
+  .spreadsheet-link a:hover {
+    background-color: var(--primary-color);
+    color: var(--white-color);
+  }
+
   /* --- Encabezados y Separadores --- */
   h1, h2, h3 {
     color: var(--text-color);
@@ -156,6 +182,31 @@
     padding: 10px;
     border-radius: 5px;
     font-style: italic;
+    /* Nuevos estilos */
+    display: none; /* Empezar oculto, JS lo mostrará */
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .status-message > span {
+    flex-grow: 1;
+    margin-right: 15px; /* Espacio entre el texto y el botón de cierre */
+  }
+  
+  .close-btn {
+    background: transparent;
+    border: none;
+    font-size: 1.7rem;
+    line-height: 1;
+    font-weight: bold;
+    color: inherit; /* Hereda el color del texto (rojo para error, verde para éxito) */
+    opacity: 0.6;
+    cursor: pointer;
+    padding: 0;
+    align-self: flex-start; /* Se alinea arriba por si el mensaje ocupa varias líneas */
+  }
+  .close-btn:hover {
+    opacity: 1;
   }
 
   .permanent-instructions {
@@ -191,4 +242,4 @@
     font-style: italic;
     padding: 10px;
   }
-</style>
+</style>
