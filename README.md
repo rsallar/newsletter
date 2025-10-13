@@ -1,96 +1,104 @@
-# Automated Newsletter Generator with Google Apps Script & Gemini API
+# Generador Automatizado de Newsletter con Google Apps Script y Gemini
 
-This project is a powerful, automated newsletter generation system built on Google Apps Script. It uses **Google News RSS feeds** to find the latest relevant news on your topics, the **Gemini API** for AI-powered content generation, and **Gmail** for sending the final newsletter. It's managed through a simple web interface, also hosted as a Google Apps Script web app.
+Este proyecto es un potente sistema automatizado para la generación de newsletters construido sobre Google Apps Script. Utiliza los **feeds RSS de Google News** para encontrar las últimas noticias relevantes sobre tus temas de interés, la **API de Gemini** para la generación de contenido mediante inteligencia artificial y **Gmail** para enviar la newsletter final. Todo se gestiona a través de una sencilla interfaz web, también alojada como una aplicación web de Google Apps Script.
 
-## Features
+## Características
 
--   **Web-Based UI**: An easy-to-use interface to configure keywords, manage recipient lists, and trigger the newsletter generation manually.
--   **Real-time News Fetching**: Uses Google News RSS feeds to find the most relevant news from the past week at the exact moment of generation.
--   **AI-Powered Newsletter Generation**:
-    -   Collects top news articles (links, titles, snippets) for your keywords.
-    -   Uses the Gemini API to analyze all the collected articles.
-    -   Generates a cohesive and well-structured newsletter draft.
--   **Fully Automated Workflow**:
-    -   A single **weekly trigger** runs to perform the entire process: search for news, generate the newsletter, and send it to your mailing list.
--   **Manual Control**: The web UI allows you to trigger the entire process on demand with a single click, showing a real-time log of the progress.
--   **Persistent Storage**: Uses a Google Spreadsheet (created and managed automatically) to store configuration and the email list.
+-   **Interfaz de Usuario Web**: Una interfaz fácil de usar para configurar palabras clave, gestionar listas de destinatarios y activar la generación manual de la newsletter.
+-   **Búsqueda de Noticias en Tiempo Real**: Utiliza los feeds RSS de Google News para encontrar las noticias más relevantes de la última semana en el momento exacto de la generación. No necesita API Key para la búsqueda.
+-   **Generación de Newsletter con IA**:
+    -   Recopila los principales artículos de noticias (enlaces, títulos, fragmentos) para tus palabras clave.
+    -   Utiliza la API de Gemini para analizar todos los artículos recopilados.
+    -   Genera un borrador de newsletter coherente y bien estructurado en formato HTML.
+-   **Flujo de Trabajo Totalmente Automatizado**:
+    -   Un único **activador (trigger) semanal** ejecuta todo el proceso: busca noticias, genera la newsletter y la envía a tu lista de correo.
+-   **Control Manual**: La interfaz web te permite activar todo el proceso bajo demanda con un solo clic, mostrando un registro en tiempo real del progreso.
+-   **Almacenamiento Persistente**: Utiliza una Hoja de Cálculo de Google (creada y gestionada automáticamente) para almacenar la configuración y la lista de correos electrónicos.
 
-## Prerequisites
+## Requisitos Previos
 
-Before you begin, ensure you have the following:
+Antes de empezar, asegúrate de tener lo siguiente:
 
-1.  **A Google Account**: To host the Apps Script project, use Gmail, Google Sheets, etc.
-2.  **Node.js and npm**: Required to install the `clasp` command-line tool.
-3.  **Google Gemini API Key**: You need an API key from Google AI Studio. You can get one for free [here](https://aistudio.google.com/app/apikey). Your API key must be associated with a Google Cloud Project where the "Generative Language API" is enabled.
+1.  **Una Cuenta de Google**: Para alojar el proyecto de Apps Script, usar Gmail, Google Sheets, etc.
+2.  **Node.js y npm**: Necesario para instalar la herramienta de línea de comandos `clasp`. Puedes descargarlo desde [nodejs.org](https://nodejs.org/).
+3.  **Google Gemini API Key**: Necesitas una clave de API de Google AI Studio.
+    -   Puedes obtener una de forma gratuita desde [Google AI Studio](https://aistudio.google.com/app/apikey).
+    -   Tu clave de API debe estar asociada a un proyecto de Google Cloud donde la **"Generative Language API"** esté habilitada. Si no lo está, puedes habilitarla [aquí](https://console.cloud.google.com/apis/library/generativelanguage.googleapis.com).
 
-## Setup and Installation Guide
+## Guía de Instalación y Configuración
 
-Follow these steps carefully to get the project up and running.
+Sigue estos pasos cuidadosamente para poner en marcha el proyecto.
 
-### **Step 1:** Clone the Repository & Install `clasp`
+### **Paso 1:** Clona el Repositorio e Instala `clasp`
 
-Clone this repository and install `clasp` globally.
+Clona este repositorio en tu máquina local e instala `clasp` de forma global a través de npm.
 
 ```bash
-git clone <repository_url>
-cd <repository_name>
+git clone <URL_DEL_REPOSITORIO>
+cd <NOMBRE_DEL_REPOSITORIO>
 npm install -g @google/clasp
 clasp login
 ```
+Después de ejecutar `clasp login`, sigue las instrucciones para iniciar sesión con tu cuenta de Google.
 
-### **Step 2:** Create and Link Google Apps Script Project
+### **Paso 2:** Crea y Vincula el Proyecto de Google Apps Script
 
-1.  Go to the [Google Apps Script dashboard](https://script.google.com/home) and create a **New project**.
-2.  Give your project a name (e.g., "Automated Newsletter").
-3.  Go to **Project Settings** ⚙️ and copy the **Script ID**.
-4.  Paste the Script ID into the `.clasp.json` file in your local project.
+1.  Ve al [panel de Google Apps Script](https://script.google.com/home) y crea un **Nuevo proyecto**.
+2.  Dale un nombre a tu proyecto (ej. "Newsletter Automatizada").
+3.  Ve a **Configuración del proyecto** ⚙️ y copia el **ID de la secuencia de comandos**.
+4.  Pega el ID en el archivo `.clasp.json` de tu proyecto local, reemplazando el valor existente de `scriptId`.
 
-### **Step 3:** Create and Configure Your Secrets File
+### **Paso 3:** Crea tu Fichero de Configuración (`config.gs`)
 
-To keep your secret keys secure, they are stored in a file that is not tracked by Git. You must create this file manually.
+Para mantener tus claves seguras, se almacenan en un archivo que no se sube al repositorio de Git. Debes crear este archivo manualmente.
 
-1.  In your local project, navigate to the `src/` folder.
-2.  Create a **new file** and name it exactly `config.gs`.
-3.  Copy and paste the following code into your new `src/config.gs` file:
+1.  En la **raíz de tu proyecto local**, crea un **nuevo archivo** y nómbralo exactamente `config.gs`.
+2.  Copia y pega el siguiente código en tu nuevo archivo `config.gs`:
 
     ```javascript
-    // src/config.gs
-    const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY_GOES_HERE';
+    // config.gs
+    const GEMINI_API_KEY = 'AQUÍ_VA_TU_API_KEY_DE_GEMINI';
     ```
 
-4.  Replace the placeholder text with your actual **Gemini API Key**.
+3.  Reemplaza el texto del placeholder con tu **API Key de Gemini** real.
 
-### **Step 4:** Push Your Code and Deploy
+### **Paso 4:** Sube tu Código y Habilita los Servicios
 
-1.  **Push the code to your Apps Script project:**
+1.  **Sube el código a tu proyecto de Apps Script:**
 
     ```bash
     clasp push
-    ```
-    (Say `y` to overwrite the manifest if prompted).
+    ```    (Si te pregunta si quieres sobreescribir el manifiesto, responde `y`).
 
-2.  **Deploy as a Web App:**
-    -   Open the project in the Apps Script editor (`clasp open`).
-    -   Click **Deploy** > **New deployment**.
-    -   Select type ⚙️ > **Web app**.
-    -   **Description**: Initial deployment.
-    -   **Execute as**: **Me**
-    -   **Who has access**: **Only myself**
-    -   Click **Deploy** and complete the authorization flow (you may need to go to "Advanced" and "Go to... (unsafe)").
-    -   Copy the **Web app URL**. This is your UI.
+2.  **Habilita el Servicio Avanzado de Gmail:**
+    -   Abre el proyecto en el editor de Apps Script (`clasp open`).
+    -   En el menú de la izquierda, haz clic en **Servicios** (+).
+    -   Busca **"Gmail API"**, selecciónala y haz clic en **Agregar**. Esto es necesario para que el script pueda enviar correos.
 
-## How to Use the Application
+### **Paso 5:** Despliega la Aplicación Web
 
-1.  **Open the Web App**: Paste the Web app URL into your browser.
+1.  En el editor de Apps Script, haz clic en **Desplegar** > **Nuevo despliegue**.
+2.  Selecciona el tipo de despliegue ⚙️ > **Aplicación web**.
+3.  **Descripción**: Despliegue inicial.
+4.  **Ejecutar como**: **Yo** (tu cuenta de Google).
+5.  **Quién tiene acceso**: **Solo yo**.
+6.  Haz clic en **Desplegar**.
+7.  **Autoriza los permisos**: La primera vez, Google te pedirá que autorices los permisos que el script necesita (gestionar Hojas de Cálculo, enviar correos, etc.). Es posible que tengas que ir a "Configuración avanzada" y "Ir a... (no seguro)".
+8.  Copia la **URL de la aplicación web**. Esta es la URL de tu interfaz de usuario.
 
-2.  **Configure Keywords**:
-    -   In the "Configure Keywords" section, enter a list of topics you want to follow, separated by commas.
-    -   Click **Save Configuración and Activar Proceso Semanal**.
-    -   This action saves your keywords and sets up the single **weekly trigger** that automates the entire process.
+## Cómo Usar la Aplicación
 
-3.  **Manage Email List**:
-    -   Use the "Email Management" section to add or remove recipient email addresses.
+1.  **Abre la Aplicación Web**: Pega la URL de la aplicación web que copiaste en el paso anterior en tu navegador.
 
-4.  **Wait or Run Manually**:
-    -   The system will now run automatically once a week.
-    -   If you want to test the process immediately, click the **"Buscar Noticias y Enviar Newsletter"** button. A log window will appear showing the real-time progress of the entire workflow.
+2.  **Configura las Palabras Clave**:
+    -   En la sección "Configurar Palabras Clave", introduce una lista de temas que quieres seguir, separados por comas.
+    -   Selecciona el modelo de IA que deseas utilizar y ajusta el prompt si es necesario.
+    -   Haz clic en **Guardar Configuración y Activar Proceso Semanal**.
+    -   Esta acción guarda tus preferencias y configura el **activador semanal** que automatiza todo el proceso.
+
+3.  **Gestiona la Lista de Correos**:
+    -   Usa la sección "Gestión de Correos Electrónicos" para añadir o eliminar las direcciones de los destinatarios.
+
+4.  **Espera o Ejecuta Manualmente**:
+    -   El sistema ahora se ejecutará automáticamente una vez por semana.
+    -   Si quieres probar el proceso inmediatamente, haz clic en el botón **"Buscar Noticias y Enviar Newsletter"**. Aparecerá una ventana de registro que muestra el progreso en tiempo real de todo el flujo de trabajo.
