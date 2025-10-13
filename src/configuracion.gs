@@ -81,7 +81,7 @@ A partir de la siguiente lista de noticias, crea un borrador de newsletter en fo
 Los temas de interés para esta newsletter son: {KEYWORDS}.
 
 La newsletter debe tener:
-1.  Como máximo 10 notícias de la lista. Selecciona las que creas que son más relevantes para un perfil Agile, Project Manager o Delivery Lead o similares.
+1.  Como máximo 10 notícias de la lista. Selecciona las que creas que son más relevantes para un perfil Agile, Project Manager o Delivery Lead o similares. No menciones estos roles si no es estrictamente necesario.
 2.  Un título principal atractivo dentro de una etiqueta <h1>.
 3.  Una breve introducción general que enganche al lector sobre los temas de la semana, mencionando los temas principales.
 4.  Para cada noticia, crea una sección con un subtítulo (<h3>), un resumen conciso y bien redactado del contenido (basado en el título y el snippet de la notícia), y un enlace claro para "Leer más" que apunte a la URL original. 
