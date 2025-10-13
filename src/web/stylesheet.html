@@ -95,20 +95,47 @@
     display: block;
     margin-bottom: 8px;
   }
+  
+  label code {
+    font-family: "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    background-color: #e9ecef;
+    padding: .2em .4em;
+    border-radius: 3px;
+    font-size: 85%;
+  }
 
-  input[type="text"], input[type="email"] {
+  input[type="text"], input[type="email"], select, textarea {
     width: 100%;
     padding: 12px;
     border: 1px solid var(--border-color);
     border-radius: 5px;
-    box-sizing: border-box; /* Importante para que el padding no afecte al width */
+    box-sizing: border-box;
     transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    background-color: var(--white-color);
+    font-size: 1rem;
+    font-family: inherit;
+    line-height: 1.5;
   }
 
-  input[type="text"]:focus, input[type="email"]:focus {
+  select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 16px 12px;
+  }
+
+  input[type="text"]:focus, input[type="email"]:focus, select:focus, textarea:focus {
     border-color: var(--primary-color);
     box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
     outline: none;
+  }
+
+  select:disabled {
+    background-color: #e9ecef;
+    opacity: 1;
   }
 
   /* --- Botones --- */
@@ -182,15 +209,14 @@
     padding: 10px;
     border-radius: 5px;
     font-style: italic;
-    /* Nuevos estilos */
-    display: none; /* Empezar oculto, JS lo mostrará */
+    display: none;
     justify-content: space-between;
     align-items: center;
   }
 
   .status-message > span {
     flex-grow: 1;
-    margin-right: 15px; /* Espacio entre el texto y el botón de cierre */
+    margin-right: 15px;
   }
   
   .close-btn {
@@ -199,11 +225,11 @@
     font-size: 1.7rem;
     line-height: 1;
     font-weight: bold;
-    color: inherit; /* Hereda el color del texto (rojo para error, verde para éxito) */
+    color: inherit;
     opacity: 0.6;
     cursor: pointer;
     padding: 0;
-    align-self: flex-start; /* Se alinea arriba por si el mensaje ocupa varias líneas */
+    align-self: flex-start;
   }
   .close-btn:hover {
     opacity: 1;
@@ -243,10 +269,9 @@
     padding: 10px;
   }
 
-  /* --- NUEVOS ESTILOS PARA EL LOG --- */
   .log-container {
-    background-color: #212529; /* Fondo oscuro tipo consola */
-    color: #f8f9fa; /* Texto claro */
+    background-color: #212529;
+    color: #f8f9fa;
     border: 1px solid #495057;
     padding: 15px;
     font-family: "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
@@ -254,7 +279,7 @@
     white-space: pre-wrap;
     max-height: 250px;
     overflow-y: auto;
-    display: none; /* Empieza oculto */
+    display: none;
     border-radius: 5px;
     margin-top: 15px;
   }
@@ -265,12 +290,12 @@
     padding-left: 10px;
   }
   .log-container .log-error {
-    color: #ff8b8b; /* Rojo más visible en fondo oscuro */
+    color: #ff8b8b;
     font-weight: bold;
     border-left-color: var(--danger-color);
   }
   .log-container .log-success {
-    color: #7ee08d; /* Verde más visible en fondo oscuro */
+    color: #7ee08d;
     font-weight: bold;
     border-left-color: var(--success-color);
   }

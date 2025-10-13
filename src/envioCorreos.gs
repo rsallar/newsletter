@@ -30,11 +30,11 @@ function enviarNewsletter(contenidoNewsletter, noticiasCompletas) {
   }
   
   let htmlBody = contenidoNewsletter;
-  htmlBody += "<h2>Todas las Noticias de la Semana:</h2><ul>";
+  /*htmlBody += "<h2>Todas las Noticias de la Semana:</h2><ul>";
   noticiasCompletas.forEach(noticia => {
     htmlBody += `<li><a href="${noticia.url}">${noticia.url}</a></li>`;
   });
-  htmlBody += "</ul>";
+  htmlBody += "</ul>";*/
 
   const asunto = "Tu Newsletter Semanal";
   let erroresDeEnvio = 0;

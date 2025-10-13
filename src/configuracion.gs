@@ -1,22 +1,34 @@
 /**
- * Guarda las palabras clave y configura las alertas y filtros.
- * @param {string} keywords - Las palabras clave separadas por comas.
+ * Guarda la configuración (palabras clave, modelo de IA y prompt) y configura el trigger.
+ * @param {Object} config - Un objeto con {keywords: string, model: string, prompt: string}.
  * @returns {Object} Un objeto con un mensaje de éxito e instrucciones para el usuario.
  */
-function guardarConfiguracion(keywords) {
+function guardarConfiguracion(config) {
+  const { keywords, model, prompt } = config;
+  if (!model) {
+    throw new Error("Se debe seleccionar un modelo de IA para guardar la configuración.");
+  }
+  if (!prompt || prompt.trim() === "") {
+    throw new Error("El campo de prompt para la IA no puede estar vacío.");
+  }
+
   const spreadsheet = getProjectSpreadsheet();
   const sheet = getSheet(spreadsheet, 'Configuracion');
   
   sheet.clear(); 
   sheet.getRange(1, 1).setValue('Keywords');
-  sheet.getRange(1, 2).setValue(keywords);
+  sheet.getRange(1, 2).setValue(keywords || '');
+  sheet.getRange(2, 1).setValue('AI_Model');
+  sheet.getRange(2, 2).setValue(model);
+  sheet.getRange(3, 1).setValue('Prompt');
+  sheet.getRange(3, 2).setValue(prompt);
 
-  const keywordsArray = keywords.split(',').map(k => k.trim()).filter(Boolean); // filter(Boolean) elimina strings vacíos
+
+  const keywordsArray = (keywords || '').split(',').map(k => k.trim()).filter(Boolean);
   
   if (keywordsArray.length > 0) {
-    configurarTriggerUnico(); // Configura el único trigger semanal.
+    configurarTriggerUnico();
   } else {
-    // Si no hay keywords, eliminamos los triggers para no ejecutar en vacío.
     eliminarTriggers(); 
   }
 
@@ -61,20 +73,52 @@ function eliminarKeyword(keywordToDelete) {
 
 
 /**
- * Obtiene las palabras clave guardadas actualmente.
- * @returns {string} Las palabras clave separadas por comas, o una cadena vacía.
+ * Obtiene la configuración guardada actualmente.
+ * @returns {Object} Un objeto con {keywords: string, model: string, prompt: string}, o valores por defecto.
  */
-function obtenerKeywordsActuales() {
+function obtenerConfiguracion() {
+  const DEFAULT_PROMPT = `
+Actúa como un experto redactor de newsletters. 
+A partir de la siguiente lista de noticias, crea un borrador de newsletter en formato HTML.
+La newsletter debe tener:
+1.  Como máximo 10 notícias de la lista. Selecciona las que creas que son más relevantes para un perfil Agile, Project Manager o Delivery Lead o similares.
+2.  Intenta que de las 10 al menos 3 sean en castellano.
+3.  Un título principal atractivo dentro de una etiqueta <h1>. Al lado del título pon una bandera inglesa o española dependiendo del idioma de la notícia.
+4.  Una breve introducción general que enganche al lector sobre los temas de la semana.
+5.  Para cada noticia, crea una sección con un subtítulo (<h3>), un resumen conciso y bien redactado del contenido (basado en el título y el snippet de la notícia), y un enlace claro para "Leer más" que apunte a la URL original. No inventes información, básate en los datos proporcionados.
+6.  Una breve conclusión o despedida.
+7.  Utiliza etiquetas HTML semánticas como <p>, <ul>, <li>, y <a>. No incluyas las etiquetas <html>, <head>, o <body>. Solo el contenido interno para un email.
+
+La newsletter tiene que ser en Castellano.
+
+Aquí están las urls de las noticias para analizar:
+---
+{NOTICIAS_TEXTO}
+---
+  `;
+
   try {
     const spreadsheet = getProjectSpreadsheet();
     const sheet = spreadsheet.getSheetByName('Configuracion');
-    if (!sheet) {
-      return "";
+    if (!sheet || sheet.getLastRow() < 2) {
+      return { keywords: "", model: "", prompt: DEFAULT_PROMPT };
     }
-    return sheet.getRange(1, 2).getValue();
+    const data = sheet.getRange("A1:B3").getValues();
+    const config = {};
+    data.forEach(row => {
+        if (row[0] === 'Keywords') config.keywords = row[1];
+        if (row[0] === 'AI_Model') config.model = row[1];
+        if (row[0] === 'Prompt') config.prompt = row[1];
+    });
+    
+    return {
+        keywords: config.keywords || "",
+        model: config.model || "",
+        prompt: config.prompt || DEFAULT_PROMPT
+    };
   } catch (e) {
-    console.error("Error al obtener keywords: " + e.message);
-    return ""; 
+    console.error("Error al obtener la configuración: " + e.message);
+    return { keywords: "", model: "", prompt: DEFAULT_PROMPT }; 
   }
 }
 

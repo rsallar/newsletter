@@ -9,7 +9,6 @@
     <div class="container">
       <h1>Configuración de la Newsletter</h1>
       
-      <!-- Contenedor para el enlace a la hoja de cálculo -->
       <div id="spreadsheetLinkContainer" class="spreadsheet-link">
         <a href="#" target="_blank" rel="noopener noreferrer" style="display:none;">Abrir Hoja de Cálculo de Datos</a>
         <p>Cargando enlace a la hoja de cálculo...</p>
@@ -24,6 +23,17 @@
       <form id="configForm">
         <label for="keywords">Editar lista de Palabras Clave (separadas por comas):</label>
         <input type="text" id="keywords" name="keywords" placeholder="Ej: inteligencia artificial, apps script, computación cuántica">
+        
+        <br><br>
+        <label for="aiModel">Modelo de IA a Utilizar:</label>
+        <select id="aiModel" name="aiModel" disabled>
+          <option value="">Cargando modelos...</option>
+        </select>
+        
+        <br><br>
+        <label for="prompt">Prompt para la IA (la variable <code>{NOTICIAS_TEXTO}</code> será reemplazada):</label>
+        <textarea id="prompt" name="prompt" rows="12" placeholder="Describe aquí cómo quieres que la IA genere la newsletter..."></textarea>
+
         <br><br>
         <input type="submit" value="Guardar Configuración y Activar Proceso Semanal">
       </form>
@@ -36,12 +46,10 @@
       <hr>
 
       <h2>Acción Manual</h2>
-      <p>Si no quieres esperar al activador semanal, puedes ejecutar todo el proceso ahora mismo. Si encuentras errores relacionados con el "modelo" de IA, usa el botón 'Listar Modelos' para ver los que están disponibles para tu API Key.</p>
+      <p>Si no quieres esperar al activador semanal, puedes ejecutar todo el proceso ahora mismo.</p>
       <div class="manual-actions-container">
         <button id="manualProcesoBtn" class="btn btn-success" style="flex-grow: 1;">Buscar Noticias y Enviar Newsletter</button>
-        <button id="listModelsBtn" class="btn btn-info">Listar Modelos de IA</button>
       </div>
-      <!-- Este contenedor mostrará los logs del proceso manual -->
       <div id="statusManual" class="log-container"></div>
 
       <hr>
@@ -59,18 +67,14 @@
     </div>
 
     <script>
-      /**
-       * Muestra un mensaje de estado con un botón de cierre manual.
-       */
       function showStatus(elementId, message, isError = false) {
         const statusDiv = document.getElementById(elementId);
-        // El mensaje se envuelve en un span para que el flexbox funcione correctamente
         statusDiv.innerHTML = `<span>${message}</span><button class="close-btn" aria-label="Cerrar">&times;</button>`;
         statusDiv.style.color = isError ? 'var(--danger-color)' : 'var(--success-color)';
         statusDiv.style.backgroundColor = isError ? '#f8d7da' : '#d4edda';
         statusDiv.style.borderColor = isError ? '#f5c6cb' : '#c3e6cb';
         statusDiv.style.border = '1px solid';
-        statusDiv.style.display = 'flex'; // Hacer visible el contenedor
+        statusDiv.style.display = 'flex';
 
         if(message.includes("ACCIÓN MANUAL REQUERIDA")){
             statusDiv.classList.add("permanent-instructions");
@@ -79,37 +83,65 @@
         }
       }
       
-      /**
-       * Carga las keywords actuales y las muestra en la lista y en el campo de texto.
-       */
-      function cargarKeywordsActuales() {
-        google.script.run
-          .withSuccessHandler(function(keywords) {
-            document.getElementById('keywords').value = keywords;
-            const listDiv = document.getElementById('keywordList');
-            const keywordsArray = keywords.split(',').map(k => k.trim()).filter(Boolean);
-
-            if (keywordsArray.length === 0) {
-              listDiv.innerHTML = '<p class="list-item-empty">No hay palabras clave configuradas.</p>';
-              return;
-            }
-
-            let html = '<ul class="list">';
-            keywordsArray.forEach(function(kw) {
-              html += `<li class="list-item"><span>${kw}</span> <button class="btn delete-btn" data-keyword="${kw}">Eliminar</button></li>`;
-            });
-            html += '</ul>';
-            listDiv.innerHTML = html;
-          })
-          .withFailureHandler(function(error) {
-            showStatus('statusKeywords', 'Error al cargar las keywords: ' + error.message, true);
-          })
-          .obtenerKeywordsActuales();
+      function cargarModelosDisponibles(modeloGuardado) {
+          const select = document.getElementById('aiModel');
+          google.script.run
+              .withSuccessHandler(function(models) {
+                  select.innerHTML = '';
+                  if (!models || models.length === 0) {
+                      select.innerHTML = '<option value="">No se encontraron modelos</option>';
+                      showStatus('statusFase1', 'No se pudieron cargar los modelos de IA. Revisa tu API Key.', true);
+                      return;
+                  }
+                  const modelosValidos = models.filter(m => m.supportedMethods.includes('generateContent'));
+                  if(modelosValidos.length === 0){
+                      select.innerHTML = '<option value="">No hay modelos compatibles</option>';
+                      showStatus('statusFase1', 'Se encontraron modelos, pero ninguno soporta "generateContent".', true);
+                      return;
+                  }
+                  modelosValidos.forEach(model => {
+                      const option = document.createElement('option');
+                      option.value = model.name;
+                      option.textContent = `${model.displayName} (${model.name.split('/')[1]})`;
+                      if (model.name === modeloGuardado) {
+                          option.selected = true;
+                      }
+                      select.appendChild(option);
+                  });
+                  select.disabled = false;
+              })
+              .withFailureHandler(function(error) {
+                  select.innerHTML = `<option value="">Error al cargar</option>`;
+                  showStatus('statusFase1', 'Error fatal al cargar modelos de IA: ' + error.message, true);
+              })
+              .listarModelosGemini();
       }
 
-      /**
-       * Carga y muestra la lista de activadores del proyecto.
-       */
+      function cargarConfiguracionActual() {
+          google.script.run
+              .withSuccessHandler(function(config) {
+                  document.getElementById('keywords').value = config.keywords;
+                  document.getElementById('prompt').value = config.prompt;
+                  const listDiv = document.getElementById('keywordList');
+                  const keywordsArray = config.keywords.split(',').map(k => k.trim()).filter(Boolean);
+                  if (keywordsArray.length === 0) {
+                      listDiv.innerHTML = '<p class="list-item-empty">No hay palabras clave configuradas.</p>';
+                  } else {
+                      let html = '<ul class="list">';
+                      keywordsArray.forEach(function(kw) {
+                          html += `<li class="list-item"><span>${kw}</span> <button class="btn delete-btn" data-keyword="${kw}">Eliminar</button></li>`;
+                      });
+                      html += '</ul>';
+                      listDiv.innerHTML = html;
+                  }
+                  cargarModelosDisponibles(config.model);
+              })
+              .withFailureHandler(function(error) {
+                  showStatus('statusKeywords', 'Error al cargar la configuración: ' + error.message, true);
+              })
+              .obtenerConfiguracion();
+      }
+
       function cargarTriggers() {
         google.script.run
           .withSuccessHandler(function(triggers) {
@@ -126,14 +158,11 @@
             listDiv.innerHTML = html;
           })
           .withFailureHandler(function(error) {
-            document.getElementById('triggerList').innerHTML = `<p class="list-item-empty" style="color:var(--danger-color);">Error al cargar los activadores: ${error.message}</p>`;
+            document.getElementById('triggerList').innerHTML = `<p class="list-item-empty" style="color:var(--danger-color);">Error: ${error.message}</p>`;
           })
           .obtenerTriggers();
       }
       
-      /**
-       * Carga y muestra la lista de correos electrónicos.
-       */
       function cargarCorreos() {
         google.script.run
           .withSuccessHandler(function(correos) {
@@ -155,16 +184,12 @@
           .obtenerCorreos();
       }
 
-      /**
-       * Carga y muestra el enlace a la hoja de cálculo de datos del proyecto.
-       */
       function cargarSpreadsheetUrl() {
         google.script.run
           .withSuccessHandler(function(url) {
             const container = document.getElementById('spreadsheetLinkContainer');
             const link = container.querySelector('a');
             const loadingText = container.querySelector('p');
-            
             if (link && url) {
               link.href = url;
               link.style.display = 'inline-block';
@@ -175,45 +200,50 @@
           })
           .withFailureHandler(function(error) {
             const container = document.getElementById('spreadsheetLinkContainer');
-            container.innerHTML = `<p style="color:var(--danger-color); font-style:italic;">No se pudo cargar el enlace a la hoja de cálculo: ${error.message}</p>`;
+            container.innerHTML = `<p style="color:var(--danger-color); font-style:italic;">Error: ${error.message}</p>`;
           })
-          .getSpreadsheetUrl(); // Llamada a la nueva función del backend
+          .getSpreadsheetUrl();
       }
 
-
-      // Cargar los datos iniciales cuando la página se carga
       document.addEventListener('DOMContentLoaded', function() {
         cargarSpreadsheetUrl();
-        cargarKeywordsActuales();
+        cargarConfiguracionActual();
         cargarTriggers();
         cargarCorreos();
-
-        // Event listener para los botones de cierre en las alertas
         document.addEventListener('click', function(e) {
           if (e.target && e.target.classList.contains('close-btn')) {
             const statusDiv = e.target.parentElement;
             statusDiv.innerHTML = '';
-            statusDiv.style.display = 'none'; // Ocultar el div
+            statusDiv.style.display = 'none';
           }
         });
       });
 
-      // --- MANEJADORES DE EVENTOS ---
-
-      // Formulario de configuración
       document.getElementById('configForm').addEventListener('submit', function(e) {
         e.preventDefault();
         const submitBtn = this.querySelector('input[type="submit"]');
         submitBtn.disabled = true;
         submitBtn.value = "Guardando...";
-        const keywords = document.getElementById('keywords').value;
+        
+        const config = {
+          keywords: document.getElementById('keywords').value,
+          model: document.getElementById('aiModel').value,
+          prompt: document.getElementById('prompt').value
+        };
+
+        if (!config.model) {
+            showStatus('statusFase1', 'Error: Debes seleccionar un modelo de IA.', true);
+            submitBtn.disabled = false;
+            submitBtn.value = "Guardar Configuración y Activar Proceso Semanal";
+            return;
+        }
         
         google.script.run
           .withSuccessHandler(function(response) {
             showStatus('statusFase1', response.successMessage, false);
             showStatus('instructionsFase1', response.instructions, false); 
             cargarTriggers();
-            cargarKeywordsActuales(); 
+            cargarConfiguracionActual();
             submitBtn.disabled = false;
             submitBtn.value = "Guardar Configuración y Activar Proceso Semanal";
           })
@@ -222,10 +252,9 @@
             submitBtn.disabled = false;
             submitBtn.value = "Guardar Configuración y Activar Proceso Semanal";
           })
-          .guardarConfiguracion(keywords);
+          .guardarConfiguracion(config);
       });
       
-      // Eliminar keywords
       document.getElementById('keywordList').addEventListener('click', function(e) {
         if (e.target && e.target.classList.contains('delete-btn')) {
             const keyword = e.target.dataset.keyword;
@@ -235,8 +264,8 @@
                 google.script.run
                     .withSuccessHandler(function(response) {
                         showStatus('statusKeywords', response, false);
-                        cargarKeywordsActuales();
-                        cargarTriggers(); // Recargamos triggers por si se eliminó el último
+                        cargarConfiguracionActual();
+                        cargarTriggers();
                     })
                     .withFailureHandler(function(error) {
                         showStatus('statusKeywords', 'Error: ' + error.message, true);
@@ -248,127 +277,73 @@
         }
       });
 
-      // --- NUEVA LÓGICA PARA EL PROCESO MANUAL ---
-
-      /**
-       * Añade una línea al contenedor de logs en la interfaz.
-       * @param {string} message - El mensaje a mostrar.
-       * @param {boolean} isError - Si es un mensaje de error.
-       * @param {boolean} isSuccess - Si es un mensaje de éxito final.
-       */
       function addLog(message, isError = false, isSuccess = false) {
         const logContainer = document.getElementById('statusManual');
-        logContainer.style.display = 'block'; // Asegurarse de que el contenedor es visible
-
+        logContainer.style.display = 'block';
         const logEntry = document.createElement('p');
         logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
-
         if (isError) logEntry.className = 'log-error';
         if (isSuccess) logEntry.className = 'log-success';
-
         logContainer.appendChild(logEntry);
-        logContainer.scrollTop = logContainer.scrollHeight; // Auto-scroll al final
+        logContainer.scrollTop = logContainer.scrollHeight;
       }
 
-      // Botón del Proceso Manual Completo
       document.getElementById('manualProcesoBtn').addEventListener('click', function() {
         const btn = this;
         btn.disabled = true;
         btn.innerText = 'Ejecutando...';
-
         const logContainer = document.getElementById('statusManual');
-        logContainer.innerHTML = ''; // Limpiar logs anteriores
-        
+        logContainer.innerHTML = '';
         addLog('Iniciando proceso manual...');
-
-        // Encadenamos las llamadas a las nuevas funciones del backend usando promesas
         new Promise((resolve, reject) => {
-          addLog('Paso 1/4: Obteniendo palabras clave...');
+          addLog('Paso 1/4: Obteniendo configuración guardada...');
           google.script.run
             .withSuccessHandler(resolve)
             .withFailureHandler(reject)
-            .iniciarProcesoManual_Paso1_GetKeywords();
+            .iniciarProcesoManual_Paso1_GetConfig();
         })
-        .then(keywordsArray => {
-          addLog(`  > Éxito. Keywords: ${keywordsArray.join(', ')}`);
+        .then(config => {
+          addLog(`  > Éxito. Usando modelo: ${config.model}`);
           addLog('Paso 2/4: Buscando noticias recientes...');
           return new Promise((resolve, reject) => {
             google.script.run
               .withSuccessHandler(resolve)
               .withFailureHandler(reject)
-              .iniciarProcesoManual_Paso2_SearchNews(keywordsArray);
+              .iniciarProcesoManual_Paso2_SearchNews(config);
           });
         })
-        .then(noticias => {
-          addLog(`  > Éxito. Se encontraron ${noticias.length} noticias.`);
+        .then(dataForStep3 => {
+          addLog(`  > Éxito. Se encontraron ${dataForStep3.noticias.length} noticias.`);
           addLog('Paso 3/4: Generando contenido con IA...');
           return new Promise((resolve, reject) => {
             google.script.run
               .withSuccessHandler(resolve)
               .withFailureHandler(reject)
-              .iniciarProcesoManual_Paso3_GenerateContent(noticias);
+              .iniciarProcesoManual_Paso3_GenerateContent(dataForStep3);
           });
         })
-        .then(data => {
+        .then(dataForStep4 => {
           addLog('  > Éxito. Contenido de la newsletter generado.');
           addLog('Paso 4/4: Enviando newsletter por correo...');
           return new Promise((resolve, reject) => {
             google.script.run
               .withSuccessHandler(resolve)
               .withFailureHandler(reject)
-              .iniciarProcesoManual_Paso4_SendEmails(data);
+              .iniciarProcesoManual_Paso4_SendEmails(dataForStep4);
           });
         })
         .then(finalMessage => {
-          addLog(finalMessage, false, true); // Mensaje final de éxito
+          addLog(finalMessage, false, true);
         })
         .catch(error => {
-          addLog(`ERROR: ${error.message}`, true); // Captura cualquier error en la cadena
+          addLog(`ERROR: ${error.message}`, true);
         })
         .finally(() => {
-          // Esto se ejecuta siempre, tanto si hay éxito como si hay error
           btn.disabled = false;
           btn.innerText = 'Buscar Noticias y Enviar Newsletter';
         });
       });
 
-      // --- NUEVO MANEJADOR DE EVENTO PARA LISTAR MODELOS ---
-      document.getElementById('listModelsBtn').addEventListener('click', function() {
-        const btn = this;
-        btn.disabled = true;
-        btn.innerText = 'Listando...';
-        
-        const logContainer = document.getElementById('statusManual');
-        logContainer.innerHTML = ''; // Limpiar logs anteriores
-        addLog('Solicitando lista de modelos a la API de Gemini...');
-
-        const reEnableButton = () => {
-            btn.disabled = false;
-            btn.innerText = 'Listar Modelos de IA';
-        };
-
-        google.script.run
-            .withSuccessHandler(function(models) {
-                if (models && models.length > 0) {
-                    addLog('Modelos disponibles encontrados:', false, true);
-                    let modelsText = models.map(model => {
-                        return `\n- Nombre: ${model.name}\n  (Display: ${model.displayName})\n  (Métodos: ${model.supportedMethods.join(', ') || 'ninguno'})`;
-                    }).join('');
-                    addLog('--- INICIO LISTA ---' + modelsText + '\n--- FIN LISTA ---');
-                    addLog("INSTRUCCIÓN: Si el proceso automático falla por un error de 'modelo no encontrado', edita el fichero 'src/utils/gemini.gs' en tu código. Busca las dos variables 'API_URL' y reemplaza el modelo (ej: 'gemini-1.0-pro') por uno de esta lista que soporte el método 'generateContent'.", false, true);
-                } else {
-                    addLog('No se encontraron modelos disponibles. Verifica que tu API Key es correcta y está asociada a un proyecto con la API "Generative Language" habilitada.', true);
-                }
-                reEnableButton();
-            })
-            .withFailureHandler(function(error) {
-                addLog(`ERROR al listar modelos: ${error.message}`, true);
-                reEnableButton();
-            })
-            .listarModelosGemini();
-      });
-
-      // Formulario de correos
       document.getElementById('emailForm').addEventListener('submit', function(e) {
         e.preventDefault();
         const emailInput = document.getElementById('email');
@@ -395,7 +370,6 @@
           .agregarCorreo(email);
       });
       
-      // Eliminar correos
       document.getElementById('emailList').addEventListener('click', function(e) {
         if (e.target && e.target.classList.contains('delete-btn')) {
           e.target.disabled = true; 

@@ -1,13 +1,13 @@
 # Automated Newsletter Generator with Google Apps Script & Gemini API
 
-This project is a powerful, automated newsletter generation system built on Google Apps Script. It uses the **Google Custom Search API** to find the latest relevant news on your topics, the **Gemini API** for AI-powered content generation, and **Gmail** for sending the final newsletter. It's managed through a simple web interface, also hosted as a Google Apps Script web app.
+This project is a powerful, automated newsletter generation system built on Google Apps Script. It uses **Google News RSS feeds** to find the latest relevant news on your topics, the **Gemini API** for AI-powered content generation, and **Gmail** for sending the final newsletter. It's managed through a simple web interface, also hosted as a Google Apps Script web app.
 
 ## Features
 
 -   **Web-Based UI**: An easy-to-use interface to configure keywords, manage recipient lists, and trigger the newsletter generation manually.
--   **Real-time News Fetching**: Uses the Google Custom Search API to find the most relevant news from the past week at the exact moment of generation.
+-   **Real-time News Fetching**: Uses Google News RSS feeds to find the most relevant news from the past week at the exact moment of generation.
 -   **AI-Powered Newsletter Generation**:
-    -   Collects top search results (links, titles, snippets) for your keywords.
+    -   Collects top news articles (links, titles, snippets) for your keywords.
     -   Uses the Gemini API to analyze all the collected articles.
     -   Generates a cohesive and well-structured newsletter draft.
 -   **Fully Automated Workflow**:
@@ -21,8 +21,7 @@ Before you begin, ensure you have the following:
 
 1.  **A Google Account**: To host the Apps Script project, use Gmail, Google Sheets, etc.
 2.  **Node.js and npm**: Required to install the `clasp` command-line tool.
-3.  **Google Gemini API Key**: You need an API key from Google AI Studio. You can get one for free [here](https://aistudio.google.com/app/apikey).
-4.  **A Google Cloud Project**: Your Gemini API Key must be associated with a Google Cloud project. This is crucial because you will need to enable the **"Custom Search API"** within this *same project*.
+3.  **Google Gemini API Key**: You need an API key from Google AI Studio. You can get one for free [here](https://aistudio.google.com/app/apikey). Your API key must be associated with a Google Cloud Project where the "Generative Language API" is enabled.
 
 ## Setup and Installation Guide
 
@@ -46,28 +45,7 @@ clasp login
 3.  Go to **Project Settings** ⚙️ and copy the **Script ID**.
 4.  Paste the Script ID into the `.clasp.json` file in your local project.
 
-### **Step 3:** Configure Google Cloud & Search API
-
-This is a critical step. The process requires two different Google services that will be linked by your API Key.
-
-1.  **Enable the Custom Search API**:
-    -   Go to the [Google Cloud Console API Library](https://console.cloud.google.com/apis/library).
-    -   Make sure you have selected the **same Google Cloud project** that is associated with your Gemini API Key.
-    -   Search for "**Custom Search API**" and click on it.
-    -   Click the **Enable** button. If it's already enabled, you're all set.
-
-    > **💡 Important: Troubleshooting a 403 Error**
-    > If you later run the script and get an error like `403: Requests to this API... are blocked`, it's almost certainly because you have not enabled the "Custom Search API" in the correct Google Cloud project. Double-check this step.
-
-2.  **Create a Programmable Search Engine**:
-    -   Go to the [Programmable Search Engine control panel](https://programmablesearchengine.google.com/controlpanel/all).
-    -   Click **Add**.
-    -   Give your search engine a name (e.g., "Newsletter Search").
-    -   In the "What to search?" section, select **Search the entire web**.
-    -   Complete the setup.
-    -   Once created, you will be on the control panel for your new search engine. In the "Basics" tab, find the **Search engine ID** and click **Copy**. This ID starts with `cx`.
-
-### **Step 4:** Create and Configure Your Secrets File
+### **Step 3:** Create and Configure Your Secrets File
 
 To keep your secret keys secure, they are stored in a file that is not tracked by Git. You must create this file manually.
 
@@ -78,12 +56,11 @@ To keep your secret keys secure, they are stored in a file that is not tracked b
     ```javascript
     // src/config.gs
     const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY_GOES_HERE';
-    const SEARCH_ENGINE_ID_CX = 'YOUR_SEARCH_ENGINE_ID_GOES_HERE'; // Starts with 'cx'
     ```
 
-4.  Replace the placeholder text with your actual **Gemini API Key** and the **Search Engine ID** you copied in the previous step.
+4.  Replace the placeholder text with your actual **Gemini API Key**.
 
-### **Step 5:** Push Your Code and Deploy
+### **Step 4:** Push Your Code and Deploy
 
 1.  **Push the code to your Apps Script project:**
 
@@ -96,6 +73,7 @@ To keep your secret keys secure, they are stored in a file that is not tracked b
     -   Open the project in the Apps Script editor (`clasp open`).
     -   Click **Deploy** > **New deployment**.
     -   Select type ⚙️ > **Web app**.
+    -   **Description**: Initial deployment.
     -   **Execute as**: **Me**
     -   **Who has access**: **Only myself**
     -   Click **Deploy** and complete the authorization flow (you may need to go to "Advanced" and "Go to... (unsafe)").
@@ -114,5 +92,5 @@ To keep your secret keys secure, they are stored in a file that is not tracked b
     -   Use the "Email Management" section to add or remove recipient email addresses.
 
 4.  **Wait or Run Manually**:
-    -   The system will now run automatically once a week (every Friday morning).
+    -   The system will now run automatically once a week.
     -   If you want to test the process immediately, click the **"Buscar Noticias y Enviar Newsletter"** button. A log window will appear showing the real-time progress of the entire workflow.
