@@ -1,42 +1,56 @@
 /**
- * Guarda la configuración (palabras clave, modelo de IA y prompt) y configura el trigger.
- * @param {Object} config - Un objeto con {keywords: string, model: string, prompt: string}.
+ * Guarda la configuración (palabras clave, modelo, prompt, día y hora) y configura el trigger.
+ * @param {Object} config - Un objeto con {keywords: string, model: string, prompt: string, dayOfWeek: string, hour: number}.
  * @returns {Object} Un objeto con un mensaje de éxito e instrucciones para el usuario.
  */
 function guardarConfiguracion(config) {
-  const { keywords, model, prompt } = config;
+  const { keywords, model, prompt, dayOfWeek, hour } = config;
   if (!model) {
     throw new Error("Se debe seleccionar un modelo de IA para guardar la configuración.");
   }
   if (!prompt || prompt.trim() === "") {
     throw new Error("El campo de prompt para la IA no puede estar vacío.");
   }
+  if (!dayOfWeek || !hour) {
+    throw new Error("Se debe especificar un día y una hora para el activador.");
+  }
+
 
   const spreadsheet = getProjectSpreadsheet();
   const sheet = getSheet(spreadsheet, 'Configuracion');
   
   sheet.clear(); 
-  sheet.getRange(1, 1).setValue('Keywords');
-  sheet.getRange(1, 2).setValue(keywords || '');
-  sheet.getRange(2, 1).setValue('AI_Model');
-  sheet.getRange(2, 2).setValue(model);
-  sheet.getRange(3, 1).setValue('Prompt');
-  sheet.getRange(3, 2).setValue(prompt);
+  sheet.getRange('A1:B5').setValues([
+    ['Keywords', keywords || ''],
+    ['AI_Model', model],
+    ['Prompt', prompt],
+    ['DayOfWeek', dayOfWeek],
+    ['Hour', hour]
+  ]);
 
 
   const keywordsArray = (keywords || '').split(',').map(k => k.trim()).filter(Boolean);
   
   if (keywordsArray.length > 0) {
-    configurarTriggerUnico();
+    configurarTriggerUnico(dayOfWeek, hour);
   } else {
     eliminarTriggers(); 
   }
+
+  // Formato de la hora para que siempre tenga dos dígitos (e.g., 09:00)
+  const formattedHour = String(hour).padStart(2, '0') + ':00';
+  // Mapeo de nombres de días en inglés a español para el mensaje
+  const diasSemana = {
+      MONDAY: 'Lunes', TUESDAY: 'Martes', WEDNESDAY: 'Miércoles', 
+      THURSDAY: 'Jueves', FRIDAY: 'Viernes', SATURDAY: 'Sábado', SUNDAY: 'Domingo'
+  };
+  const diaEnEspanol = diasSemana[dayOfWeek.toUpperCase()] || dayOfWeek;
 
   const successMessage = `¡Éxito! Configuración guardada. El activador semanal ha sido ${keywordsArray.length > 0 ? 'creado o actualizado' : 'eliminado'}.`;
   
   return {
     successMessage: successMessage,
-    instructions: "El sistema ahora buscará noticias y enviará la newsletter una vez por semana (Viernes a las 9 AM)."
+    instructions: `El sistema ahora buscará noticias y enviará la newsletter cada ${diaEnEspanol} a las ${formattedHour}.`
   };
 }
 
@@ -73,7 +87,7 @@ function eliminarKeyword(keywordToDelete) {
 
 /**
  * Obtiene la configuración guardada actualmente.
- * @returns {Object} Un objeto con {keywords: string, model: string, prompt: string}, o valores por defecto.
+ * @returns {Object} Un objeto con {keywords: string, model: string, prompt: string, dayOfWeek: string, hour: number}, o valores por defecto.
  */
 function obtenerConfiguracion() {
   const DEFAULT_PROMPT = `Actúa como un experto redactor de newsletters.
@@ -97,36 +111,52 @@ Aquí están las noticias para analizar:
 ---
 `;
 
+  const defaults = { 
+    keywords: "", 
+    model: "", 
+    prompt: DEFAULT_PROMPT.trim(),
+    dayOfWeek: "FRIDAY",
+    hour: 9
+  };
+
   try {
     const spreadsheet = getProjectSpreadsheet();
     const sheet = spreadsheet.getSheetByName('Configuracion');
     if (!sheet || sheet.getLastRow() < 2) {
-      return { keywords: "", model: "", prompt: DEFAULT_PROMPT.trim() };
+      return defaults;
     }
-    const data = sheet.getRange("A1:B3").getValues();
+    const data = sheet.getRange("A1:B5").getValues();
     const config = {};
     data.forEach(row => {
         if (row[0] === 'Keywords') config.keywords = row[1];
         if (row[0] === 'AI_Model') config.model = row[1];
         if (row[0] === 'Prompt') config.prompt = row[1];
+        if (row[0] === 'DayOfWeek') config.dayOfWeek = row[1];
+        if (row[0] === 'Hour') config.hour = row[1];
     });
     
     return {
-        keywords: config.keywords || "",
-        model: config.model || "",
-        prompt: (config.prompt || DEFAULT_PROMPT).trim()
+        keywords: config.keywords || defaults.keywords,
+        model: config.model || defaults.model,
+        prompt: (config.prompt || defaults.prompt).trim(),
+        dayOfWeek: config.dayOfWeek || defaults.dayOfWeek,
+        hour: config.hour !== '' && !isNaN(config.hour) ? Number(config.hour) : defaults.hour
     };
   } catch (e) {
     console.error("Error al obtener la configuración: " + e.message);
-    return { keywords: "", model: "", prompt: DEFAULT_PROMPT.trim() }; 
+    return defaults; 
   }
 }
 
 /**
  * Crea o actualiza el único trigger semanal del proyecto.
+ * @param {string} dayOfWeek El día de la semana para ejecutar el trigger (ej: 'FRIDAY').
+ * @param {number} hour La hora del día (0-23) para ejecutar el trigger.
  */
-function configurarTriggerUnico() {
+function configurarTriggerUnico(dayOfWeek, hour) {
   const handlerFunction = 'ejecutarProcesoCompleto';
+  
+  // Elimina triggers existentes para esta función
   const triggers = ScriptApp.getProjectTriggers();
   for (const trigger of triggers) {
     if (trigger.getHandlerFunction() === handlerFunction) {
@@ -134,13 +164,26 @@ function configurarTriggerUnico() {
     }
   }
 
+  // Valida el día de la semana
+  const weekDayEnum = ScriptApp.WeekDay[dayOfWeek.toUpperCase()];
+  if (!weekDayEnum) {
+    throw new Error(`Día de la semana inválido: "${dayOfWeek}".`);
+  }
+
+  // Valida la hora
+  const numericHour = parseInt(hour, 10);
+  if (isNaN(numericHour) || numericHour < 0 || numericHour > 23) {
+      throw new Error(`Hora inválida: "${hour}". Debe ser un número entre 0 y 23.`);
+  }
+
+  // Crea el nuevo trigger
   ScriptApp.newTrigger(handlerFunction)
       .timeBased()
-      .onWeekDay(ScriptApp.WeekDay.FRIDAY)
-      .atHour(9)
+      .onWeekDay(weekDayEnum)
+      .atHour(numericHour)
       .create();
   
-  console.log(`Trigger semanal para la función '${handlerFunction}' creado/actualizado.`);
+  console.log(`Trigger semanal para la función '${handlerFunction}' creado/actualizado para ${dayOfWeek} a las ${hour}:00.`);
 }
 
 /**

@@ -45,13 +45,39 @@
             <textarea id="prompt" name="prompt" rows="12" placeholder="Describe aquí cómo quieres que la IA genere la newsletter..."></textarea>
 
             <br><br>
+
+            <div class="schedule-container">
+              <div>
+                <label for="dayOfWeek">Día de envío:</label>
+                <select id="dayOfWeek" name="dayOfWeek">
+                  <option value="MONDAY">Lunes</option>
+                  <option value="TUESDAY">Martes</option>
+                  <option value="WEDNESDAY">Miércoles</option>
+                  <option value="THURSDAY">Jueves</option>
+                  <option value="FRIDAY" selected>Viernes</option>
+                  <option value="SATURDAY">Sábado</option>
+                  <option value="SUNDAY">Domingo</option>
+                </select>
+              </div>
+              <div>
+                <label for="hour">Hora de envío:</label>
+                <select id="hour" name="hour">
+                  <!-- Horas se llenarán con JS -->
+                </select>
+              </div>
+            </div>
+
+            <br>
             <input type="submit" value="Guardar Configuración y Activar Proceso Semanal">
           </form>
           <div id="statusFase1" class="status-message"></div>
           <div id="instructionsFase1" class="status-message"></div>
 
           <h3>Activador Semanal Configurado</h3>
-          <div id="triggerList"><p class="list-item-empty">Cargando activador...</p></div>
+          <div id="triggerStatus">
+            <p class="list-item-empty">Cargando estado del activador...</p>
+          </div>
+
         </section>
 
         <hr>
@@ -133,11 +159,50 @@
               .listarModelosGemini();
       }
 
+      function updateScheduleInfo(day, hour) {
+          const triggerStatusDiv = document.getElementById('triggerStatus');
+          google.script.run
+              .withSuccessHandler(function(triggers) {
+                  if (triggers.length === 0) {
+                      triggerStatusDiv.innerHTML = '<p class="list-item-empty">No hay activadores configurados. Guarda tu configuración para crear uno.</p>';
+                      return;
+                  }
+                  
+                  const trigger = triggers[0];
+                  const diasSemana = {
+                      MONDAY: 'Lunes', TUESDAY: 'Martes', WEDNESDAY: 'Miércoles',
+                      THURSDAY: 'Jueves', FRIDAY: 'Viernes', SATURDAY: 'Sábado', SUNDAY: 'Domingo'
+                  };
+                  const diaEnEspanol = diasSemana[day.toUpperCase()] || day;
+                  const formattedHour = String(hour).padStart(2, '0') + ':00';
+
+                  const html = `
+                    <div class="list-item">
+                        <span>
+                            <strong>Estado:</strong> Activado, 
+                            <strong>Función:</strong> ${trigger.handlerFunction}, 
+                            <strong>Horario:</strong> Cada ${diaEnEspanol} a las ${formattedHour}
+                        </span>
+                    </div>`;
+                  triggerStatusDiv.innerHTML = html;
+              })
+              .withFailureHandler(function(error) {
+                  triggerStatusDiv.innerHTML = `<p class="list-item-empty" style="color:var(--danger-color);">Error: ${error.message}</p>`;
+              })
+              .obtenerTriggers();
+      }
+
+
       function cargarConfiguracionActual() {
           google.script.run
               .withSuccessHandler(function(config) {
                   document.getElementById('keywords').value = config.keywords;
                   document.getElementById('prompt').value = config.prompt;
+                  document.getElementById('dayOfWeek').value = config.dayOfWeek;
+                  document.getElementById('hour').value = config.hour;
+                  
+                  updateScheduleInfo(config.dayOfWeek, config.hour);
+
                   const listDiv = document.getElementById('keywordList');
                   const keywordsArray = config.keywords.split(',').map(k => k.trim()).filter(Boolean);
                   if (keywordsArray.length === 0) {
@@ -158,27 +223,6 @@
               .obtenerConfiguracion();
       }
 
-      function cargarTriggers() {
-        google.script.run
-          .withSuccessHandler(function(triggers) {
-            const listDiv = document.getElementById('triggerList');
-            if (triggers.length === 0) {
-              listDiv.innerHTML = '<p class="list-item-empty">No hay activadores configurados. Guarda tus palabras clave para crear uno.</p>';
-              return;
-            }
-            let html = '<ul class="list">';
-            triggers.forEach(function(trigger) {
-              html += `<li class="list-item"><span><strong>Función:</strong> ${trigger.handlerFunction}, <strong>Tipo:</strong> ${trigger.eventType} (semanal)</span></li>`;
-            });
-            html += '</ul>';
-            listDiv.innerHTML = html;
-          })
-          .withFailureHandler(function(error) {
-            document.getElementById('triggerList').innerHTML = `<p class="list-item-empty" style="color:var(--danger-color);">Error: ${error.message}</p>`;
-          })
-          .obtenerTriggers();
-      }
-      
       function cargarCorreos() {
         google.script.run
           .withSuccessHandler(function(correos) {
@@ -221,10 +265,20 @@
           .getSpreadsheetUrl();
       }
 
+      function populateHourSelect() {
+        const hourSelect = document.getElementById('hour');
+        for (let i = 0; i < 24; i++) {
+          const option = document.createElement('option');
+          option.value = i;
+          option.textContent = `${String(i).padStart(2, '0')}:00`;
+          hourSelect.appendChild(option);
+        }
+      }
+
       document.addEventListener('DOMContentLoaded', function() {
+        populateHourSelect();
         cargarSpreadsheetUrl();
         cargarConfiguracionActual();
-        cargarTriggers();
         cargarCorreos();
         document.addEventListener('click', function(e) {
           if (e.target && e.target.classList.contains('close-btn')) {
@@ -244,7 +298,9 @@
         const config = {
           keywords: document.getElementById('keywords').value,
           model: document.getElementById('aiModel').value,
-          prompt: document.getElementById('prompt').value
+          prompt: document.getElementById('prompt').value,
+          dayOfWeek: document.getElementById('dayOfWeek').value,
+          hour: document.getElementById('hour').value
         };
 
         if (!config.model) {
@@ -258,7 +314,6 @@
           .withSuccessHandler(function(response) {
             showStatus('statusFase1', response.successMessage, false);
             showStatus('instructionsFase1', response.instructions, false); 
-            cargarTriggers();
             cargarConfiguracionActual();
             submitBtn.disabled = false;
             submitBtn.value = "Guardar Configuración y Activar Proceso Semanal";
@@ -281,7 +336,6 @@
                     .withSuccessHandler(function(response) {
                         showStatus('statusKeywords', response, false);
                         cargarConfiguracionActual();
-                        cargarTriggers();
                     })
                     .withFailureHandler(function(error) {
                         showStatus('statusKeywords', 'Error: ' + error.message, true);
