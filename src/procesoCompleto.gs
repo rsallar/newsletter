@@ -9,7 +9,6 @@
 function ejecutarProcesoCompleto() {
   console.log("Iniciando el proceso completo de generación de newsletter...");
 
-  // 1. Obtener Configuración completa
   const config = obtenerConfiguracion();
   if (!config.keywords) {
     console.warn("No hay palabras clave configuradas. El proceso no puede continuar.");
@@ -25,7 +24,6 @@ function ejecutarProcesoCompleto() {
   }
   const keywordsArray = config.keywords.split(',').map(k => k.trim()).filter(Boolean);
 
-  // 2. Buscar Noticias
   const noticias = buscarNoticiasRecientes(keywordsArray);
   if (noticias.length === 0) {
     console.log("No se encontraron noticias nuevas esta semana para las keywords configuradas. Proceso finalizado.");
@@ -34,8 +32,8 @@ function ejecutarProcesoCompleto() {
   
   console.log(`Se encontraron ${noticias.length} noticias. Procediendo a generar contenido con Gemini.`);
 
-  // 3. Generar Contenido con Gemini, pasando el modelo y el prompt seleccionados
-  const contenidoNewsletter = generarContenidoNewsletterConGemini(noticias, config.model, config.prompt);
+  // Pasamos el array de keywords para que pueda ser usado en el prompt.
+  const contenidoNewsletter = generarContenidoNewsletterConGemini(noticias, config.model, config.prompt, keywordsArray);
   
   if (!contenidoNewsletter || contenidoNewsletter.trim() === "") {
       throw new Error("Gemini no devolvió contenido para la newsletter. Revisa la implementación, la API Key o el modelo seleccionado.");
@@ -43,7 +41,6 @@ function ejecutarProcesoCompleto() {
 
   console.log("Contenido de la newsletter generado. Procediendo al envío.");
 
-  // 4. Enviar Newsletter
   enviarNewsletter(contenidoNewsletter, noticias);
   
   console.log("Proceso completo de newsletter finalizado con éxito.");

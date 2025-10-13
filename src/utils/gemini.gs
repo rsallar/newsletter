@@ -2,18 +2,19 @@
  * Llama a la API de Gemini para generar el contenido de la newsletter a partir de una lista de noticias.
  * @param {Array<Object>} noticias - Array de objetos con {title, link, snippet}.
  * @param {string} modelName - El nombre del modelo a utilizar (ej: 'models/gemini-1.5-pro-latest').
- * @param {string} promptTemplate - La plantilla del prompt que contiene el placeholder {NOTICIAS_TEXTO}.
+ * @param {string} promptTemplate - La plantilla del prompt que contiene placeholders.
+ * @param {Array<string>} keywordsArray - El array de palabras clave para reemplazar {KEYWORDS}.
  * @returns {string|null} - El contenido HTML de la newsletter, o null si hay un error.
  */
-function generarContenidoNewsletterConGemini(noticias, modelName, promptTemplate) {
+function generarContenidoNewsletterConGemini(noticias, modelName, promptTemplate, keywordsArray) {
   const API_KEY = GEMINI_API_KEY;
   const modeloSeleccionado = modelName || 'models/gemini-1.5-pro-latest';
   
   if (!modeloSeleccionado.startsWith('models/')) {
       throw new Error(`El nombre del modelo es inválido: "${modeloSeleccionado}". Debe empezar con "models/".`);
   }
-  if (!promptTemplate || !promptTemplate.includes('{NOTICIAS_TEXTO}')) {
-      throw new Error('El prompt es inválido. Debe ser un string y contener el placeholder {NOTICIAS_TEXTO}.');
+  if (!promptTemplate) {
+      throw new Error('El prompt no puede estar vacío.');
   }
 
   const API_URL = `https://generativelanguage.googleapis.com/v1beta/${modeloSeleccionado}:generateContent?key=${API_KEY}`;
@@ -23,8 +24,10 @@ function generarContenidoNewsletterConGemini(noticias, modelName, promptTemplate
     `Noticia ${index + 1}:\n - Título: ${n.title}\n - Enlace: ${n.link}\n - Fragmento: ${n.snippet}`
   ).join('\n\n');
 
-  // Reemplazamos el placeholder en la plantilla con las noticias formateadas.
-  const prompt = promptTemplate.replace('{NOTICIAS_TEXTO}', noticiasTexto);
+  // Reemplazamos los placeholders en la plantilla.
+  const keywordsString = (keywordsArray || []).join(', ');
+  let prompt = promptTemplate.replace('{KEYWORDS}', keywordsString);
+  prompt = prompt.replace('{NOTICIAS}', noticiasTexto);
  
   const payload = {
     contents: [{
@@ -84,7 +87,6 @@ function generarContenidoNewsletterConGemini(noticias, modelName, promptTemplate
 
 /**
  * Llama a la API de Gemini para listar los modelos disponibles.
- * Esto es útil para depurar si el modelo por defecto no funciona.
  * @returns {Array<Object>} Una lista de objetos, donde cada objeto representa un modelo disponible.
  */
 function listarModelosGemini() {
@@ -107,7 +109,7 @@ function listarModelosGemini() {
 
     if (responseCode !== 200) {
       console.error(`Error al listar modelos de Gemini (Código: ${responseCode}): ${responseText}`);
-      throw new Error(`Error al contactar la API de Gemini para listar modelos (Código: ${responseCode}). Revisa tu API Key y la consola para más detalles. Respuesta: ${responseText}`);
+      throw new Error(`Error al contactar la API de Gemini (Código: ${responseCode}). Revisa tu API Key.`);
     }
 
     const data = JSON.parse(responseText);

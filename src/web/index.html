@@ -1,69 +1,85 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <base target="_top">
     <!-- Aquí incluimos el contenido del fichero CSS -->
     <?!= include('src/web/stylesheet.html'); ?>
   </head>
   <body>
     <div class="container">
-      <h1>Configuración de la Newsletter</h1>
-      
-      <div id="spreadsheetLinkContainer" class="spreadsheet-link">
-        <a href="#" target="_blank" rel="noopener noreferrer" style="display:none;">Abrir Hoja de Cálculo de Datos</a>
-        <p>Cargando enlace a la hoja de cálculo...</p>
-      </div>
-      
-      <h2>Configurar Palabras Clave y Automatización</h2>
+      <nav class="side-menu">
+        <h3>Navegación</h3>
+        <ul>
+          <li><a href="#configuracion">Configuración</a></li>
+          <li><a href="#manual">Acción Manual</a></li>
+          <li><a href="#correos">Gestión de Correos</a></li>
+        </ul>
+      </nav>
 
-      <h3>Palabras Clave Actuales</h3>
-      <div id="keywordList"><p class="list-item-empty">Cargando palabras clave...</p></div>
-      <div id="statusKeywords" class="status-message"></div>
-      
-      <form id="configForm">
-        <label for="keywords">Editar lista de Palabras Clave (separadas por comas):</label>
-        <input type="text" id="keywords" name="keywords" placeholder="Ej: inteligencia artificial, apps script, computación cuántica">
+      <div class="main-content">
+        <h1>Configuración de la Newsletter</h1>
         
-        <br><br>
-        <label for="aiModel">Modelo de IA a Utilizar:</label>
-        <select id="aiModel" name="aiModel" disabled>
-          <option value="">Cargando modelos...</option>
-        </select>
+        <div id="spreadsheetLinkContainer" class="spreadsheet-link">
+          <a href="#" target="_blank" rel="noopener noreferrer" style="display:none;">Abrir Hoja de Cálculo de Datos</a>
+          <p>Cargando enlace a la hoja de cálculo...</p>
+        </div>
         
-        <br><br>
-        <label for="prompt">Prompt para la IA (la variable <code>{NOTICIAS_TEXTO}</code> será reemplazada):</label>
-        <textarea id="prompt" name="prompt" rows="12" placeholder="Describe aquí cómo quieres que la IA genere la newsletter..."></textarea>
+        <section id="configuracion">
+          <h2>Configurar Palabras Clave y Automatización</h2>
 
-        <br><br>
-        <input type="submit" value="Guardar Configuración y Activar Proceso Semanal">
-      </form>
-      <div id="statusFase1" class="status-message"></div>
-      <div id="instructionsFase1" class="status-message"></div>
+          <h3>Palabras Clave Actuales</h3>
+          <div id="keywordList"><p class="list-item-empty">Cargando palabras clave...</p></div>
+          <div id="statusKeywords" class="status-message"></div>
+          
+          <form id="configForm">
+            <label for="keywords">Editar lista de Palabras Clave (separadas por comas):</label>
+            <input type="text" id="keywords" name="keywords" placeholder="Ej: inteligencia artificial, apps script, computación cuántica">
+            
+            <br><br>
+            <label for="aiModel">Modelo de IA a Utilizar:</label>
+            <select id="aiModel" name="aiModel" disabled>
+              <option value="">Cargando modelos...</option>
+            </select>
+            
+            <br><br>
+            <label for="prompt">Prompt para la IA (usa <code>{KEYWORDS}</code> y <code>{NOTICIAS}</code> como variables):</label>
+            <textarea id="prompt" name="prompt" rows="12" placeholder="Describe aquí cómo quieres que la IA genere la newsletter..."></textarea>
 
-      <h3>Activador Semanal Configurado</h3>
-      <div id="triggerList"><p class="list-item-empty">Cargando activador...</p></div>
+            <br><br>
+            <input type="submit" value="Guardar Configuración y Activar Proceso Semanal">
+          </form>
+          <div id="statusFase1" class="status-message"></div>
+          <div id="instructionsFase1" class="status-message"></div>
 
-      <hr>
+          <h3>Activador Semanal Configurado</h3>
+          <div id="triggerList"><p class="list-item-empty">Cargando activador...</p></div>
+        </section>
 
-      <h2>Acción Manual</h2>
-      <p>Si no quieres esperar al activador semanal, puedes ejecutar todo el proceso ahora mismo.</p>
-      <div class="manual-actions-container">
-        <button id="manualProcesoBtn" class="btn btn-success" style="flex-grow: 1;">Buscar Noticias y Enviar Newsletter</button>
+        <hr>
+
+        <section id="manual">
+          <h2>Acción Manual</h2>
+          <p>Si no quieres esperar al activador semanal, puedes ejecutar todo el proceso ahora mismo.</p>
+          <div class="manual-actions-container">
+            <button id="manualProcesoBtn" class="btn btn-success" style="flex-grow: 1;">Buscar Noticias y Enviar Newsletter</button>
+          </div>
+          <div id="statusManual" class="log-container"></div>
+        </section>
+        
+        <hr>
+
+        <section id="correos">
+          <h2>Gestión de Correos Electrónicos</h2>
+          <form id="emailForm">
+            <label for="email">Correo Electrónico:</label>
+            <input type="email" id="email" name="email" placeholder="nombre@ejemplo.com" required>
+            <br><br>
+            <input type="submit" value="Agregar Correo">
+          </form>
+          <div id="statusEmail" class="status-message"></div>
+          <h3>Lista de Correos</h3>
+          <div id="emailList"><p class="list-item-empty">Cargando lista de correos...</p></div>
+        </section>
       </div>
-      <div id="statusManual" class="log-container"></div>
-
-      <hr>
-      
-      <h2>Gestión de Correos Electrónicos</h2>
-      <form id="emailForm">
-        <label for="email">Correo Electrónico:</label>
-        <input type="email" id="email" name="email" placeholder="nombre@ejemplo.com" required>
-        <br><br>
-        <input type="submit" value="Agregar Correo">
-      </form>
-      <div id="statusEmail" class="status-message"></div>
-      <h3>Lista de Correos</h3>
-      <div id="emailList"><p class="list-item-empty">Cargando lista de correos...</p></div>
     </div>
 
     <script>
