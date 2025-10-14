@@ -1,405 +1,442 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <!-- Aquí incluimos el contenido del fichero CSS -->
-    <?!= include('src/web/stylesheet.html'); ?>
-  </head>
-  <body>
-    <div class="container">
-      <nav class="side-menu">
-        <h3>Navegación</h3>
-        <ul>
-          <li><a href="#configuracion">Configuración</a></li>
-          <li><a href="#manual">Acción Manual</a></li>
-          <li><a href="#correos">Gestión de Correos</a></li>
-        </ul>
-      </nav>
-
-      <div class="main-content">
-        <h1>Configuración de la Newsletter</h1>
-        
-        <div id="spreadsheetLinkContainer" class="spreadsheet-link">
-          <a href="#" target="_blank" rel="noopener noreferrer" style="display:none;">Abrir Hoja de Cálculo de Datos</a>
-          <p>Cargando enlace a la hoja de cálculo...</p>
-        </div>
-        
-        <section id="configuracion">
-          <h2>Configurar Palabras Clave y Automatización</h2>
-
-          <h3>Palabras Clave Actuales</h3>
-          <div id="keywordList"><p class="list-item-empty">Cargando palabras clave...</p></div>
-          <div id="statusKeywords" class="status-message"></div>
-          
-          <form id="configForm">
-            <label for="keywords">Editar lista de Palabras Clave (separadas por comas):</label>
-            <input type="text" id="keywords" name="keywords" placeholder="Ej: inteligencia artificial, apps script, computación cuántica">
-            
-            <br><br>
-            <label for="aiModel">Modelo de IA a Utilizar:</label>
-            <select id="aiModel" name="aiModel" disabled>
-              <option value="">Cargando modelos...</option>
-            </select>
-            
-            <br><br>
-            <label for="prompt">Prompt para la IA (usa <code>{KEYWORDS}</code> y <code>{NOTICIAS}</code> como variables):</label>
-            <textarea id="prompt" name="prompt" rows="12" placeholder="Describe aquí cómo quieres que la IA genere la newsletter..."></textarea>
-
-            <br><br>
-
-            <div class="schedule-container">
-              <div>
-                <label for="dayOfWeek">Día de envío:</label>
-                <select id="dayOfWeek" name="dayOfWeek">
-                  <option value="MONDAY">Lunes</option>
-                  <option value="TUESDAY">Martes</option>
-                  <option value="WEDNESDAY">Miércoles</option>
-                  <option value="THURSDAY">Jueves</option>
-                  <option value="FRIDAY" selected>Viernes</option>
-                  <option value="SATURDAY">Sábado</option>
-                  <option value="SUNDAY">Domingo</option>
-                </select>
-              </div>
-              <div>
-                <label for="hour">Hora de envío:</label>
-                <select id="hour" name="hour">
-                  <!-- Horas se llenarán con JS -->
-                </select>
-              </div>
-            </div>
-
-            <br>
-            <input type="submit" value="Guardar Configuración y Activar Proceso Semanal">
-          </form>
-          <div id="statusFase1" class="status-message"></div>
-          <div id="instructionsFase1" class="status-message"></div>
-
-          <h3>Activador Semanal Configurado</h3>
-          <div id="triggerStatus">
-            <p class="list-item-empty">Cargando estado del activador...</p>
-          </div>
-
-        </section>
-
-        <hr>
-
-        <section id="manual">
-          <h2>Acción Manual</h2>
-          <p>Si no quieres esperar al activador semanal, puedes ejecutar todo el proceso ahora mismo.</p>
-          <div class="manual-actions-container">
-            <button id="manualProcesoBtn" class="btn btn-success" style="flex-grow: 1;">Buscar Noticias y Enviar Newsletter</button>
-          </div>
-          <div id="statusManual" class="log-container"></div>
-        </section>
-        
-        <hr>
-
-        <section id="correos">
-          <h2>Gestión de Correos Electrónicos</h2>
-          <form id="emailForm">
-            <label for="email">Correo Electrónico:</label>
-            <input type="email" id="email" name="email" placeholder="nombre@ejemplo.com" required>
-            <br><br>
-            <input type="submit" value="Agregar Correo">
-          </form>
-          <div id="statusEmail" class="status-message"></div>
-          <h3>Lista de Correos</h3>
-          <div id="emailList"><p class="list-item-empty">Cargando lista de correos...</p></div>
-        </section>
+<head>
+  <base target="_top">
+  <?!= include('src/web/stylesheet.html'); ?>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Dashboard de Newsletters</h1>
+      <div class="header-actions">
+        <a id="spreadsheetLink" href="#" target="_blank" class="btn btn-outline-secondary" style="visibility: hidden;">Abrir Google Sheet</a>
+        <button id="createNewBtn" class="btn btn-primary">Crear Nueva Newsletter</button>
       </div>
     </div>
 
-    <script>
-      function showStatus(elementId, message, isError = false) {
-        const statusDiv = document.getElementById(elementId);
-        statusDiv.innerHTML = `<span>${message}</span><button class="close-btn" aria-label="Cerrar">&times;</button>`;
-        statusDiv.style.color = isError ? 'var(--danger-color)' : 'var(--success-color)';
-        statusDiv.style.backgroundColor = isError ? '#f8d7da' : '#d4edda';
-        statusDiv.style.borderColor = isError ? '#f5c6cb' : '#c3e6cb';
-        statusDiv.style.border = '1px solid';
-        statusDiv.style.display = 'flex';
+    <div id="newslettersDashboard">
+      <p>Cargando newsletters...</p>
+    </div>
+  </div>
 
-        if(message.includes("ACCIÓN MANUAL REQUERIDA")){
-            statusDiv.classList.add("permanent-instructions");
-        } else {
-            statusDiv.classList.remove("permanent-instructions");
+  <!-- Modal para Crear/Editar Newsletter -->
+  <div id="newsletterModal" class="modal">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <form id="newsletterForm">
+          <div class="modal-header">
+            <h5 id="modalTitle" class="modal-title">Configurar Newsletter</h5>
+            <button type="button" class="close" data-dismiss="modal">&times;</button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="id" name="id">
+            <div class="form-group">
+              <label for="name">Nombre de la Newsletter</label>
+              <input type="text" id="name" name="name" class="form-control" required>
+            </div>
+            <div class="form-group">
+              <div class="form-check">
+                <input type="checkbox" id="isEnabled" name="isEnabled" class="form-check-input">
+                <label for="isEnabled">Activada (el proceso automático se ejecutará)</label>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="keywords">Palabras Clave (separadas por comas)</label>
+              <input type="text" id="keywords" name="keywords" class="form-control">
+            </div>
+            <div class="form-group">
+              <label for="aiModel">Modelo de IA</label>
+              <select id="aiModel" name="model" class="form-control" disabled><option>Cargando...</option></select>
+            </div>
+            <div class="form-group">
+              <label for="prompt">Prompt para la IA</label>
+              <textarea id="prompt" name="prompt" rows="10" class="form-control"></textarea>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+              <div class="form-group">
+                <label for="dayOfWeek">Día de envío</label>
+                <select id="dayOfWeek" name="dayOfWeek" class="form-control">
+                  <option value="MONDAY">Lunes</option> <option value="TUESDAY">Martes</option> <option value="WEDNESDAY">Miércoles</option>
+                  <option value="THURSDAY">Jueves</option> <option value="FRIDAY">Viernes</option> <option value="SATURDAY">Sábado</option> <option value="SUNDAY">Domingo</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="hour">Hora de envío</label>
+                <select id="hour" name="hour" class="form-control"></select>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal para Gestionar Destinatarios -->
+  <div id="recipientsModal" class="modal">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 id="recipientsModalTitle" class="modal-title">Gestionar Destinatarios</h5>
+          <button type="button" class="close" data-dismiss="modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="recipientForm">
+            <input type="hidden" id="recipientNewsletterId">
+            <div style="display: flex; gap: 0.5rem;">
+              <input type="email" id="recipientEmail" class="form-control" placeholder="nuevo@correo.com" required style="flex-grow: 1;">
+              <button type="submit" class="btn btn-primary">Agregar</button>
+            </div>
+          </form>
+          <ul id="recipientList"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Elemento HTML para el Reloj de Carga -->
+  <div id="loadingOverlay">
+    <div class="spinner"></div>
+  </div>
+
+  <script>
+    const AppState = { newsletters: [], models: [] };
+    
+    // --- FUNCIONES PARA CONTROLAR EL RELOJ ---
+    function showLoader() { document.getElementById('loadingOverlay').style.display = 'flex'; }
+    function hideLoader() { document.getElementById('loadingOverlay').style.display = 'none'; }
+
+    // --- RENDER FUNCTIONS ---
+    function renderDashboard() {
+      const container = document.getElementById('newslettersDashboard');
+      if (AppState.newsletters.length === 0) {
+        container.innerHTML = '<p>No has creado ninguna newsletter todavía. ¡Haz clic en "Crear Nueva Newsletter" para empezar!</p>';
+        return;
+      }
+      container.innerHTML = AppState.newsletters.map(n => `
+        <div class="newsletter-card" data-id="${n.id}">
+          <div class="card-header">
+            <h3>${n.name}</h3>
+            <span class="status-badge ${n.isEnabled ? 'status-enabled' : 'status-disabled'}">${n.isEnabled ? 'Activada' : 'Desactivada'}</span>
+          </div>
+          <div class="card-body">
+            <p><strong>Keywords:</strong> <span class="keywords">${n.keywords || 'Ninguna'}</span></p>
+            <p><strong>Programación:</strong> ${n.dayOfWeek} a las ${String(n.hour).padStart(2, '0')}:00</p>
+            <p><strong>Destinatarios:</strong> ${n.recipients.length}</p>
+            <div id="log-${n.id}" class="log-container"></div>
+          </div>
+          <div class="card-footer">
+            <button class="btn btn-secondary btn-sm" data-action="edit">Editar</button>
+            <button class="btn btn-secondary btn-sm" data-action="recipients">Destinatarios</button>
+            <button class="btn btn-warning btn-sm" data-action="run">Ejecutar Ahora</button>
+            <button class="btn btn-danger btn-sm" data-action="delete">Eliminar</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // --- MODAL HANDLING ---
+    const newsletterModal = document.getElementById('newsletterModal');
+    const recipientsModal = document.getElementById('recipientsModal');
+    
+    function showModal(modal) { modal.style.display = 'block'; }
+    function hideModal(modal) { modal.style.display = 'none'; }
+    
+    document.querySelectorAll('[data-dismiss="modal"]').forEach(el => {
+      el.addEventListener('click', () => {
+        hideModal(newsletterModal);
+        hideModal(recipientsModal);
+      });
+    });
+
+    // --- EVENT LISTENERS ---
+    document.addEventListener('DOMContentLoaded', initialize);
+
+    document.getElementById('createNewBtn').addEventListener('click', handleCreateNew);
+    document.getElementById('newslettersDashboard').addEventListener('click', handleCardAction);
+    document.getElementById('newsletterForm').addEventListener('submit', handleSaveNewsletter);
+    document.getElementById('recipientForm').addEventListener('submit', handleAddRecipient);
+    document.getElementById('recipientsModal').addEventListener('click', handleDeleteRecipient);
+
+    // --- INITIALIZATION ---
+    function initialize() {
+      populateHourSelect();
+      loadModels();
+      loadNewsletters(); // Carga inicial de newsletters
+      loadSpreadsheetUrl();
+    }
+    
+    function loadSpreadsheetUrl() {
+      google.script.run.withSuccessHandler(url => {
+        const link = document.getElementById('spreadsheetLink');
+        if (link && url) {
+          link.href = url;
+          link.style.visibility = 'visible';
         }
-      }
-      
-      function cargarModelosDisponibles(modeloGuardado) {
-          const select = document.getElementById('aiModel');
-          google.script.run
-              .withSuccessHandler(function(models) {
-                  select.innerHTML = '';
-                  if (!models || models.length === 0) {
-                      select.innerHTML = '<option value="">No se encontraron modelos</option>';
-                      showStatus('statusFase1', 'No se pudieron cargar los modelos de IA. Revisa tu API Key.', true);
-                      return;
-                  }
-                  const modelosValidos = models.filter(m => m.supportedMethods.includes('generateContent'));
-                  if(modelosValidos.length === 0){
-                      select.innerHTML = '<option value="">No hay modelos compatibles</option>';
-                      showStatus('statusFase1', 'Se encontraron modelos, pero ninguno soporta "generateContent".', true);
-                      return;
-                  }
-                  modelosValidos.forEach(model => {
-                      const option = document.createElement('option');
-                      option.value = model.name;
-                      option.textContent = `${model.displayName} (${model.name.split('/')[1]})`;
-                      if (model.name === modeloGuardado) {
-                          option.selected = true;
-                      }
-                      select.appendChild(option);
-                  });
-                  select.disabled = false;
-              })
-              .withFailureHandler(function(error) {
-                  select.innerHTML = `<option value="">Error al cargar</option>`;
-                  showStatus('statusFase1', 'Error fatal al cargar modelos de IA: ' + error.message, true);
-              })
-              .listarModelosGemini();
-      }
+      }).getSpreadsheetUrl();
+    }
 
-      function updateScheduleInfo(day, hour) {
-          const triggerStatusDiv = document.getElementById('triggerStatus');
-          google.script.run
-              .withSuccessHandler(function(triggers) {
-                  if (triggers.length === 0) {
-                      triggerStatusDiv.innerHTML = '<p class="list-item-empty">No hay activadores configurados. Guarda tu configuración para crear uno.</p>';
-                      return;
-                  }
-                  
-                  const trigger = triggers[0];
-                  const diasSemana = {
-                      MONDAY: 'Lunes', TUESDAY: 'Martes', WEDNESDAY: 'Miércoles',
-                      THURSDAY: 'Jueves', FRIDAY: 'Viernes', SATURDAY: 'Sábado', SUNDAY: 'Domingo'
-                  };
-                  const diaEnEspanol = diasSemana[day.toUpperCase()] || day;
-                  const formattedHour = String(hour).padStart(2, '0') + ':00';
-
-                  const html = `
-                    <div class="list-item">
-                        <span>
-                            <strong>Estado:</strong> Activado, 
-                            <strong>Función:</strong> ${trigger.handlerFunction}, 
-                            <strong>Horario:</strong> Cada ${diaEnEspanol} a las ${formattedHour}
-                        </span>
-                    </div>`;
-                  triggerStatusDiv.innerHTML = html;
-              })
-              .withFailureHandler(function(error) {
-                  triggerStatusDiv.innerHTML = `<p class="list-item-empty" style="color:var(--danger-color);">Error: ${error.message}</p>`;
-              })
-              .obtenerTriggers();
-      }
-
-
-      function cargarConfiguracionActual() {
-          google.script.run
-              .withSuccessHandler(function(config) {
-                  document.getElementById('keywords').value = config.keywords;
-                  document.getElementById('prompt').value = config.prompt;
-                  document.getElementById('dayOfWeek').value = config.dayOfWeek;
-                  document.getElementById('hour').value = config.hour;
-                  
-                  updateScheduleInfo(config.dayOfWeek, config.hour);
-
-                  const listDiv = document.getElementById('keywordList');
-                  const keywordsArray = config.keywords.split(',').map(k => k.trim()).filter(Boolean);
-                  if (keywordsArray.length === 0) {
-                      listDiv.innerHTML = '<p class="list-item-empty">No hay palabras clave configuradas.</p>';
-                  } else {
-                      let html = '<ul class="list">';
-                      keywordsArray.forEach(function(kw) {
-                          html += `<li class="list-item"><span>${kw}</span> <button class="btn delete-btn" data-keyword="${kw}">Eliminar</button></li>`;
-                      });
-                      html += '</ul>';
-                      listDiv.innerHTML = html;
-                  }
-                  cargarModelosDisponibles(config.model);
-              })
-              .withFailureHandler(function(error) {
-                  showStatus('statusKeywords', 'Error al cargar la configuración: ' + error.message, true);
-              })
-              .obtenerConfiguracion();
-      }
-
-      function cargarCorreos() {
-        google.script.run
-          .withSuccessHandler(function(correos) {
-            const listDiv = document.getElementById('emailList');
-            if (correos.length === 0) {
-              listDiv.innerHTML = '<p class="list-item-empty">No hay correos en la lista.</p>';
-              return;
-            }
-            let html = '<ul class="list">';
-            correos.forEach(function(correo) {
-              html += `<li class="list-item"><span>${correo}</span> <button class="btn delete-btn" data-email="${correo}">Eliminar</button></li>`;
-            });
-            html += '</ul>';
-            listDiv.innerHTML = html;
-          })
-          .withFailureHandler(function(error) {
-             showStatus('statusEmail', 'Error al cargar los correos: ' + error.message, true);
-          })
-          .obtenerCorreos();
-      }
-
-      function cargarSpreadsheetUrl() {
-        google.script.run
-          .withSuccessHandler(function(url) {
-            const container = document.getElementById('spreadsheetLinkContainer');
-            const link = container.querySelector('a');
-            const loadingText = container.querySelector('p');
-            if (link && url) {
-              link.href = url;
-              link.style.display = 'inline-block';
-            }
-            if (loadingText) {
-              loadingText.style.display = 'none';
-            }
-          })
-          .withFailureHandler(function(error) {
-            const container = document.getElementById('spreadsheetLinkContainer');
-            container.innerHTML = `<p style="color:var(--danger-color); font-style:italic;">Error: ${error.message}</p>`;
-          })
-          .getSpreadsheetUrl();
-      }
-
-      function populateHourSelect() {
-        const hourSelect = document.getElementById('hour');
-        for (let i = 0; i < 24; i++) {
-          const option = document.createElement('option');
-          option.value = i;
-          option.textContent = `${String(i).padStart(2, '0')}:00`;
-          hourSelect.appendChild(option);
-        }
-      }
-
-      document.addEventListener('DOMContentLoaded', function() {
-        populateHourSelect();
-        cargarSpreadsheetUrl();
-        cargarConfiguracionActual();
-        cargarCorreos();
-        document.addEventListener('click', function(e) {
-          if (e.target && e.target.classList.contains('close-btn')) {
-            const statusDiv = e.target.parentElement;
-            statusDiv.innerHTML = '';
-            statusDiv.style.display = 'none';
+    /**
+     * FIX: Modificada para aceptar un callback que se ejecuta al finalizar.
+     * Esto asegura que el loader se oculte solo después de que todo haya terminado.
+     * @param {Function} [callback] - Función opcional a ejecutar al completarse.
+     */
+    function loadNewsletters(callback) {
+      showLoader();
+      google.script.run
+        .withSuccessHandler(newsletters => {
+          AppState.newsletters = newsletters;
+          renderDashboard();
+          hideLoader();
+          if (typeof callback === 'function') {
+            callback();
           }
-        });
-      });
-
-      document.getElementById('configForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        const submitBtn = this.querySelector('input[type="submit"]');
-        submitBtn.disabled = true;
-        submitBtn.value = "Guardando...";
-        
-        const config = {
-          keywords: document.getElementById('keywords').value,
-          model: document.getElementById('aiModel').value,
-          prompt: document.getElementById('prompt').value,
-          dayOfWeek: document.getElementById('dayOfWeek').value,
-          hour: document.getElementById('hour').value
-        };
-
-        if (!config.model) {
-            showStatus('statusFase1', 'Error: Debes seleccionar un modelo de IA.', true);
-            submitBtn.disabled = false;
-            submitBtn.value = "Guardar Configuración y Activar Proceso Semanal";
-            return;
-        }
-        
+        })
+        .withFailureHandler(err => {
+          alert('Error al cargar newsletters: ' + err.message);
+          hideLoader();
+           if (typeof callback === 'function') {
+            callback();
+          }
+        })
+        .getNewslettersWithData();
+    }
+    
+    function loadModels() {
         google.script.run
-          .withSuccessHandler(function(response) {
-            showStatus('statusFase1', response.successMessage, false);
-            showStatus('instructionsFase1', response.instructions, false); 
-            cargarConfiguracionActual();
-            submitBtn.disabled = false;
-            submitBtn.value = "Guardar Configuración y Activar Proceso Semanal";
-          })
-          .withFailureHandler(function(error) {
-            showStatus('statusFase1', 'Error: ' + error.message, true);
-            submitBtn.disabled = false;
-            submitBtn.value = "Guardar Configuración y Activar Proceso Semanal";
-          })
-          .guardarConfiguracion(config);
-      });
-      
-      document.getElementById('keywordList').addEventListener('click', function(e) {
-        if (e.target && e.target.classList.contains('delete-btn')) {
-            const keyword = e.target.dataset.keyword;
-            if (confirm(`¿Estás seguro de que quieres eliminar la palabra clave "${keyword}"?`)) {
-                e.target.disabled = true;
-                e.target.innerText = 'Eliminando...';
-                google.script.run
-                    .withSuccessHandler(function(response) {
-                        showStatus('statusKeywords', response, false);
-                        cargarConfiguracionActual();
-                    })
-                    .withFailureHandler(function(error) {
-                        showStatus('statusKeywords', 'Error: ' + error.message, true);
-                        e.target.disabled = false;
-                        e.target.innerText = 'Eliminar';
-                    })
-                    .eliminarKeyword(keyword);
-            }
+            .withSuccessHandler(models => {
+                AppState.models = models.filter(m => m.supportedMethods.includes('generateContent'));
+                const select = document.getElementById('aiModel');
+                select.innerHTML = AppState.models.map(m => `<option value="${m.name}">${m.displayName}</option>`).join('');
+                select.disabled = false;
+            })
+            .withFailureHandler(err => alert('Error al cargar modelos de IA: ' + err.message))
+            .listarModelosGemini();
+    }
+
+    function populateHourSelect() {
+      const select = document.getElementById('hour');
+      select.innerHTML = Array.from({length: 24}, (_, i) => `<option value="${i}">${String(i).padStart(2,'0')}:00</option>`).join('');
+    }
+
+    // --- ACTION HANDLERS ---
+    function handleCreateNew() {
+      const form = document.getElementById('newsletterForm');
+      form.reset();
+      document.getElementById('modalTitle').textContent = 'Crear Nueva Newsletter';
+      document.getElementById('id').value = '';
+      document.getElementById('aiModel').value = AppState.models[0]?.name || '';
+      google.script.run.withSuccessHandler(prompt => document.getElementById('prompt').value = prompt).getDefaultPrompt();
+      showModal(newsletterModal);
+    }
+    
+    function handleCardAction(e) {
+      if (!e.target.dataset.action) return;
+      const action = e.target.dataset.action;
+      const card = e.target.closest('.newsletter-card');
+      const id = card.dataset.id;
+      const newsletter = AppState.newsletters.find(n => n.id === id);
+
+      if (action === 'edit') handleEdit(newsletter);
+      if (action === 'delete') handleDelete(id, newsletter.name);
+      if (action === 'recipients') handleRecipients(newsletter);
+      if (action === 'run') handleRunManual(id, e.target);
+    }
+    
+    function handleEdit(newsletter) {
+      document.getElementById('modalTitle').textContent = `Editando: ${newsletter.name}`;
+      Object.keys(newsletter).forEach(key => {
+        const input = document.getElementById(key);
+        if (input) {
+          if (input.type === 'checkbox') input.checked = newsletter[key];
+          else input.value = newsletter[key];
         }
       });
+      document.getElementById('aiModel').value = newsletter.model;
+      showModal(newsletterModal);
+    }
 
-      function addLog(message, isError = false, isSuccess = false) {
-        const logContainer = document.getElementById('statusManual');
-        logContainer.style.display = 'block';
-        const logEntry = document.createElement('p');
-        logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
-        if (isError) logEntry.className = 'log-error';
-        if (isSuccess) logEntry.className = 'log-success';
-        logContainer.appendChild(logEntry);
-        logContainer.scrollTop = logContainer.scrollHeight;
+    /**
+     * FIX: Lógica mejorada para que el loader se mantenga visible
+     * hasta que la lista de newsletters se haya recargado.
+     */
+    function handleDelete(id, name) {
+      if (!confirm(`¿Estás seguro de que quieres eliminar la newsletter "${name}"? Esta acción no se puede deshacer.`)) return;
+      showLoader(); // Muestra el loader
+      google.script.run
+        .withSuccessHandler(() => {
+          // No oculta el loader. Llama a loadNewsletters que lo hará al terminar.
+          loadNewsletters();
+        })
+        .withFailureHandler(err => {
+          hideLoader(); // Oculta el loader solo si hay un error
+          alert('Error al eliminar: ' + err.message);
+        })
+        .deleteNewsletter(id);
+    }
+    
+    /**
+     * FIX: Lógica mejorada para mantener el loader visible durante todo el proceso
+     * de guardado y recarga de la lista.
+     */
+    function handleSaveNewsletter(e) {
+      e.preventDefault();
+      const form = e.target;
+      const submitBtn = form.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Guardando...';
+      showLoader(); // Muestra el loader al inicio del todo.
+
+      const config = Object.fromEntries(new FormData(form));
+      config.isEnabled = document.getElementById('isEnabled').checked;
+
+      // Esta función se ejecutará al final de todo para reactivar el botón.
+      const onComplete = () => {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Guardar Cambios';
+      };
+
+      google.script.run
+        .withSuccessHandler(() => {
+          hideModal(newsletterModal);
+          // Llama a recargar la lista y le pasa 'onComplete' para que se ejecute al final.
+          // loadNewsletters se encargará de ocultar el loader por sí mismo.
+          loadNewsletters(onComplete);
+        })
+        .withFailureHandler(err => {
+          alert('Error al guardar: ' + err.message);
+          hideLoader(); // Oculta el loader si falla el guardado.
+          onComplete(); // Y reactiva el botón.
+        })
+        .saveNewsletter(config);
+    }
+    
+    // --- RECIPIENTS LOGIC ---
+    function handleRecipients(newsletter) {
+      document.getElementById('recipientsModalTitle').textContent = `Destinatarios de: ${newsletter.name}`;
+      document.getElementById('recipientNewsletterId').value = newsletter.id;
+      renderRecipients(newsletter.id, newsletter.recipients);
+      showModal(recipientsModal);
+    }
+
+    function renderRecipients(id, recipients) {
+      const list = document.getElementById('recipientList');
+      if(recipients.length === 0) {
+        list.innerHTML = '<p>No hay destinatarios en esta lista.</p>';
+        return;
       }
+      list.innerHTML = recipients.map(email => `
+        <li>
+          <span>${email}</span>
+          <button class="btn btn-danger btn-sm" data-action="delete-recipient" data-email="${email}">Eliminar</button>
+        </li>
+      `).join('');
+    }
 
-      document.getElementById('manualProcesoBtn').addEventListener('click', function() {
-        const btn = this;
-        btn.disabled = true;
-        btn.innerText = 'Ejecutando...';
-        const logContainer = document.getElementById('statusManual');
-        logContainer.innerHTML = '';
-        addLog('Iniciando proceso manual...');
-        new Promise((resolve, reject) => {
-          addLog('Paso 1/4: Obteniendo configuración guardada...');
-          google.script.run
-            .withSuccessHandler(resolve)
-            .withFailureHandler(reject)
-            .iniciarProcesoManual_Paso1_GetConfig();
+    function handleAddRecipient(e) {
+      e.preventDefault();
+      const form = e.target;
+      const submitBtn = form.querySelector('button[type="submit"]');
+      const newsletterId = document.getElementById('recipientNewsletterId').value;
+      const emailInput = document.getElementById('recipientEmail');
+      const email = emailInput.value.trim();
+      if (!email) return;
+
+      submitBtn.disabled = true;
+
+      const onComplete = () => {
+        submitBtn.disabled = false;
+      };
+
+      google.script.run
+        .withSuccessHandler(() => {
+          emailInput.value = '';
+          const nl = AppState.newsletters.find(n => n.id === newsletterId);
+          nl.recipients.push(email);
+          renderRecipients(newsletterId, nl.recipients);
+          renderDashboard(); // To update recipient count
+          onComplete();
+        })
+        .withFailureHandler(err => {
+          alert(err.message);
+          onComplete();
+        })
+        .addRecipient(newsletterId, email);
+    }
+
+    function handleDeleteRecipient(e) {
+      if (e.target.dataset.action !== 'delete-recipient') return;
+      const deleteBtn = e.target;
+      const newsletterId = document.getElementById('recipientNewsletterId').value;
+      const email = e.target.dataset.email;
+      
+      deleteBtn.disabled = true;
+      deleteBtn.textContent = '...';
+      
+      const onComplete = () => {
+          deleteBtn.disabled = false;
+          deleteBtn.textContent = 'Eliminar';
+      };
+
+      google.script.run
+        .withSuccessHandler(() => {
+          const nl = AppState.newsletters.find(n => n.id === newsletterId);
+          nl.recipients = nl.recipients.filter(r => r !== email);
+          renderRecipients(newsletterId, nl.recipients);
+          renderDashboard(); // To update recipient count
+          onComplete();
+        })
+        .withFailureHandler(err => {
+            alert(err.message);
+            onComplete();
+        })
+        .deleteRecipient(newsletterId, email);
+    }
+
+    // --- MANUAL RUN LOGIC ---
+    function handleRunManual(id, btn) {
+      btn.disabled = true;
+      btn.textContent = 'Ejecutando...';
+      const logContainer = document.getElementById(`log-${id}`);
+      logContainer.innerHTML = '';
+      logContainer.style.display = 'block';
+      const addLog = (msg, isError=false, isSuccess=false) => {
+        const p = document.createElement('p');
+        p.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+        if(isError) p.className = 'log-error';
+        if(isSuccess) p.className = 'log-success';
+        logContainer.appendChild(p);
+        logContainer.scrollTop = logContainer.scrollHeight;
+      };
+
+      addLog('Iniciando proceso manual...');
+      
+      new Promise((resolve, reject) => {
+          addLog('Paso 1/4: Obteniendo configuración...');
+          google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).iniciarProcesoManual_Paso1_GetConfig(id);
         })
         .then(config => {
           addLog(`  > Éxito. Usando modelo: ${config.model}`);
-          addLog('Paso 2/4: Buscando noticias recientes...');
+          addLog('Paso 2/4: Buscando noticias...');
           return new Promise((resolve, reject) => {
-            google.script.run
-              .withSuccessHandler(resolve)
-              .withFailureHandler(reject)
-              .iniciarProcesoManual_Paso2_SearchNews(config);
+            google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).iniciarProcesoManual_Paso2_SearchNews(config);
           });
         })
         .then(dataForStep3 => {
           addLog(`  > Éxito. Se encontraron ${dataForStep3.noticias.length} noticias.`);
           addLog('Paso 3/4: Generando contenido con IA...');
           return new Promise((resolve, reject) => {
-            google.script.run
-              .withSuccessHandler(resolve)
-              .withFailureHandler(reject)
-              .iniciarProcesoManual_Paso3_GenerateContent(dataForStep3);
+            google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).iniciarProcesoManual_Paso3_GenerateContent(dataForStep3);
           });
         })
         .then(dataForStep4 => {
           addLog('  > Éxito. Contenido de la newsletter generado.');
           addLog('Paso 4/4: Enviando newsletter por correo...');
           return new Promise((resolve, reject) => {
-            google.script.run
-              .withSuccessHandler(resolve)
-              .withFailureHandler(reject)
-              .iniciarProcesoManual_Paso4_SendEmails(dataForStep4);
+            google.script.run.withSuccessHandler(resolve).withFailureHandler(reject).iniciarProcesoManual_Paso4_SendEmails(dataForStep4);
           });
         })
         .then(finalMessage => {
@@ -410,56 +447,9 @@
         })
         .finally(() => {
           btn.disabled = false;
-          btn.innerText = 'Buscar Noticias y Enviar Newsletter';
+          btn.textContent = 'Ejecutar Ahora';
         });
-      });
-
-      document.getElementById('emailForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        const emailInput = document.getElementById('email');
-        const email = emailInput.value.trim();
-        if (!email) return;
-        
-        const submitBtn = this.querySelector('input[type="submit"]');
-        submitBtn.disabled = true;
-        submitBtn.value = "Agregando...";
-
-        google.script.run
-          .withSuccessHandler(function(response) {
-            showStatus('statusEmail', response, false);
-            emailInput.value = '';
-            cargarCorreos();
-            submitBtn.disabled = false;
-            submitBtn.value = "Agregar Correo";
-          })
-          .withFailureHandler(function(error) {
-            showStatus('statusEmail', 'Error: ' + error.message, true);
-            submitBtn.disabled = false;
-            submitBtn.value = "Agregar Correo";
-          })
-          .agregarCorreo(email);
-      });
-      
-      document.getElementById('emailList').addEventListener('click', function(e) {
-        if (e.target && e.target.classList.contains('delete-btn')) {
-          e.target.disabled = true; 
-          const email = e.target.dataset.email;
-          if (confirm(`¿Estás seguro de que quieres eliminar el correo "${email}"?`)) {
-            google.script.run
-              .withSuccessHandler(function(response) {
-                showStatus('statusEmail', response, false);
-                cargarCorreos();
-              })
-              .withFailureHandler(function(error) {
-                showStatus('statusEmail', 'Error: ' + error.message, true);
-                e.target.disabled = false; 
-              })
-              .eliminarCorreo(email);
-          } else {
-            e.target.disabled = false;
-          }
-        }
-      });
-    </script>
-  </body>
+    }
+  </script>
+</body>
 </html>
