@@ -222,6 +222,46 @@
     }
     
     /**
+     * Cambia el estado de activación (IsEnabled) de una newsletter.
+     * @param {string} id - El ID de la newsletter a cambiar.
+     * @returns {boolean} El nuevo estado de 'IsEnabled' (true si está activada, false si no).
+     */
+    function toggleNewsletterStatus(id) {
+      if (!id) {
+        throw new Error('Se requiere un ID para cambiar el estado de la newsletter.');
+      }
+    
+      const spreadsheet = getProjectSpreadsheet();
+      const sheet = _getSheetAndEnsureHeaders(spreadsheet, NEWSLETTERS_SHEET_NAME, NEWSLETTER_HEADERS);
+      const dataRange = sheet.getDataRange();
+      const values = dataRange.getValues();
+      const headers = values[0];
+      
+      const idColIndex = headers.indexOf('ID');
+      const isEnabledColIndex = headers.indexOf('IsEnabled');
+    
+      if (idColIndex === -1 || isEnabledColIndex === -1) {
+        throw new Error('No se encontraron las columnas "ID" o "IsEnabled" en la hoja de cálculo.');
+      }
+    
+      for (let i = 1; i < values.length; i++) {
+        if (values[i][idColIndex] === id) {
+          const currentRow = i + 1; // getRange es 1-indexed
+          const isEnabledCell = sheet.getRange(currentRow, isEnabledColIndex + 1);
+          const currentStatus = isEnabledCell.getValue() === true;
+          const newStatus = !currentStatus;
+          
+          isEnabledCell.setValue(newStatus);
+          
+          console.log(`Estado de la newsletter '${id}' cambiado a: ${newStatus}`);
+          return newStatus;
+        }
+      }
+    
+      throw new Error(`No se encontró la newsletter con ID: ${id}`);
+    }
+    
+    /**
      * Agrega un destinatario a una newsletter específica.
      * @param {string} newsletterId El ID de la newsletter.
      * @param {string} email El correo a agregar.

@@ -120,7 +120,10 @@
         <div class="newsletter-card" data-id="${n.id}">
           <div class="card-header">
             <h3>${n.name}</h3>
-            <span class="status-badge ${n.isEnabled ? 'status-enabled' : 'status-disabled'}">${n.isEnabled ? 'Activada' : 'Desactivada'}</span>
+            <label class="switch" title="${n.isEnabled ? 'Activada' : 'Desactivada'}">
+              <input type="checkbox" data-action="toggle-status" ${n.isEnabled ? 'checked' : ''}>
+              <span class="slider round"></span>
+            </label>
           </div>
           <div class="card-body">
             <p><strong>Keywords:</strong> <span class="keywords">${n.keywords || 'Ninguna'}</span></p>
@@ -244,6 +247,7 @@
       if (action === 'delete') handleDelete(id, newsletter.name);
       if (action === 'recipients') handleRecipients(newsletter);
       if (action === 'run') handleRunManual(id, e.target);
+      if (action === 'toggle-status') handleToggleStatus(id, e.target);
     }
     
     function handleEdit(newsletter) {
@@ -312,6 +316,32 @@
           onComplete(); // Y reactiva el botón.
         })
         .saveNewsletter(config);
+    }
+
+    function handleToggleStatus(id, checkbox) {
+      checkbox.disabled = true; // Desactivar mientras se procesa
+      const label = checkbox.closest('.switch');
+
+      google.script.run
+        .withSuccessHandler(newStatus => {
+          // Actualizar el estado en el objeto global AppState
+          const newsletter = AppState.newsletters.find(n => n.id === id);
+          if (newsletter) {
+            newsletter.isEnabled = newStatus;
+          }
+          // Actualizar visualmente el interruptor
+          checkbox.checked = newStatus; 
+          if(label) label.title = newStatus ? 'Activada' : 'Desactivada';
+          checkbox.disabled = false;
+        })
+        .withFailureHandler(err => {
+          alert('Error al cambiar el estado: ' + err.message);
+          // Revertir el estado del checkbox en caso de error
+          checkbox.checked = !checkbox.checked; 
+          if(label) label.title = checkbox.checked ? 'Activada' : 'Desactivada';
+          checkbox.disabled = false;
+        })
+        .toggleNewsletterStatus(id);
     }
     
     // --- RECIPIENTS LOGIC ---
