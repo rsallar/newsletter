@@ -5,9 +5,16 @@
  * @returns {HtmlService.HtmlOutput} La salida del servicio HTML.
  */
 function doGet(e) {
-  // Cambiamos createHtmlOutputFromFile por createTemplateFromFile y añadimos .evaluate()
-  // Esto le dice a Apps Script que procese cualquier código del lado del servidor (como <?!= ... ?>) en el HTML.
-  return HtmlService.createTemplateFromFile('src/web/index')
-      .evaluate() // Este es el paso crucial que ejecuta la función 'include'
-      .setTitle('Configuración de Newsletter');
+  // Creamos la plantilla a partir del archivo HTML
+  const htmlOutput = HtmlService.createTemplateFromFile('src/web/index').evaluate();
+  
+  // AÑADIMOS LA ETIQUETA VIEWPORT PROGRAMÁTICAMENTE
+  // Esta es la forma más robusta de asegurar que se aplique.
+  htmlOutput.addMetaTag('viewport', 'width=device-width, initial-scale=1.0');
+
+  // Configuramos el resto de las propiedades y devolvemos el resultado
+  htmlOutput.setTitle('Configuración de Newsletter');
+  htmlOutput.setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  
+  return htmlOutput;
 }

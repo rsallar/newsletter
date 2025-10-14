@@ -2,6 +2,7 @@
 <html>
 <head>
   <base target="_top">
+  <!-- La etiqueta viewport ya no está aquí, la añade Code.gs -->
   <?!= include('src/web/stylesheet.html'); ?>
 </head>
 <body>
@@ -52,7 +53,7 @@
               <label for="prompt">Prompt para la IA</label>
               <textarea id="prompt" name="prompt" rows="10" class="form-control"></textarea>
             </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-grid-columns">
               <div class="form-group">
                 <label for="dayOfWeek">Día de envío</label>
                 <select id="dayOfWeek" name="dayOfWeek" class="form-control">

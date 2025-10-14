@@ -153,6 +153,12 @@
   .form-check { display: block; min-height: 1.5rem; padding-left: 1.5em; margin-bottom: .125rem; }
   .form-check-input { width: 1em; height: 1em; margin-top: .25em; vertical-align: top; margin-left: -1.5em; }
   
+  .form-grid-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+  
   /* Recipients List */
   #recipientList { list-style: none; padding: 0; margin-top: 1rem; }
   #recipientList li { display: flex; justify-content: space-between; align-items: center; padding: .5rem .75rem; border: 1px solid var(--border-color); border-radius: .25rem; margin-bottom: .5rem; }
@@ -252,4 +258,52 @@
 
   /* Utility */
   .d-none { display: none; }
+  
+  /* --- ESTILOS RESPONSIVE --- */
+  @media (max-width: 768px) {
+    body {
+      padding: 10px;
+    }
+
+    .header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1rem;
+    }
+    
+    .header-actions {
+      width: 100%;
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    #newslettersDashboard {
+      grid-template-columns: 1fr;
+      gap: 1rem;
+    }
+
+    .modal-dialog {
+      margin: 10px;
+    }
+
+    .modal-footer {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    
+    .modal-footer .btn {
+      width: 100%;
+      margin: 0.25rem 0;
+    }
+    
+    .modal-footer .btn[data-dismiss="modal"] {
+      order: 1; /* Poner el botón de 'Cancelar' al final */
+    }
+
+    /* Apilar día y hora en el formulario del modal */
+    .form-grid-columns {
+      grid-template-columns: 1fr;
+    }
+  }
+  /* --- FIN DE ESTILOS RESPONSIVE --- */
 </style>
