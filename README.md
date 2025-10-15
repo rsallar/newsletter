@@ -50,7 +50,7 @@ Después de ejecutar `clasp login`, sigue las instrucciones para iniciar sesión
 
 ### **Paso 3:** Crea tu Fichero de Configuración (`config.gs`)
 
-Para mantener tus claves seguras, se almacenan en un archivo que no se sube al repositorio de Git. Debes crear este archivo manualmente.
+Para mantener tus claves y contraseñas seguras, se almacenan en un archivo que no se sube al repositorio de Git (`.gitignore`). Debes crear este archivo manualmente.
 
 1.  En la **raíz de tu proyecto local**, crea un **nuevo archivo** y nómbralo exactamente `config.gs`.
 2.  Copia y pega el siguiente código en tu nuevo archivo `config.gs`:
@@ -58,9 +58,12 @@ Para mantener tus claves seguras, se almacenan en un archivo que no se sube al r
     ```javascript
     // config.gs
     const GEMINI_API_KEY = 'AQUÍ_VA_TU_API_KEY_DE_GEMINI';
+    const WEB_APP_PASSWORD = 'AQUÍ_VA_TU_CONTRASEÑA_SECRETA';
     ```
 
-3.  Reemplaza el texto del placeholder con tu **API Key de Gemini** real.
+3.  Reemplaza los textos de los placeholders:
+    *   `AQUÍ_VA_TU_API_KEY_DE_GEMINI`: Pega tu API Key de Gemini real.
+    *   `AQUÍ_VA_TU_CONTRASEÑA_SECRETA`: Escribe una contraseña segura que usarás para acceder al panel de administración de la aplicación web. **Si dejas este campo vacío o no lo defines, el acceso no funcionará.**
 
 ### **Paso 4:** Sube tu Código y Habilita los Servicios
 
@@ -88,7 +91,7 @@ Para mantener tus claves seguras, se almacenan en un archivo que no se sube al r
 
 ## Cómo Usar la Aplicación
 
-1.  **Abre la Aplicación Web**: Pega la URL de la aplicación web que copiaste en el paso anterior en tu navegador.
+1.  **Abre la Aplicación Web**: Pega la URL de la aplicación web que copiaste en el paso anterior en tu navegador. Te pedirá la contraseña que definiste en el archivo `config.gs`.
 
 2.  **Configura las Palabras Clave**:
     -   En la sección "Configurar Palabras Clave", introduce una lista de temas que quieres seguir, separados por comas.
@@ -102,3 +105,9 @@ Para mantener tus claves seguras, se almacenan en un archivo que no se sube al r
 4.  **Espera o Ejecuta Manualmente**:
     -   El sistema ahora se ejecutará automáticamente una vez por semana.
     -   Si quieres probar el proceso inmediatamente, haz clic en el botón **"Buscar Noticias y Enviar Newsletter"**. Aparecerá una ventana de registro que muestra el progreso en tiempo real de todo el flujo de trabajo.
+```
+
+### Resumen de los cambios
+
+*   **En el Paso 3**: He añadido la variable `WEB_APP_PASSWORD` al bloque de código de `config.gs` y he incluido una instrucción clara para que el usuario establezca su propia contraseña.
+*   **En la sección "Cómo Usar la Aplicación"**: He añadido una nota en el primer punto para recordarle al usuario que se le pedirá la contraseña que acaba de configurar.

@@ -64,3 +64,12 @@ function getSpreadsheetUrl() {
   const spreadsheet = getProjectSpreadsheet();
   return spreadsheet.getUrl();
 }
+
+/**
+ * NUEVO: Obtiene la URL del editor del proyecto de Apps Script.
+ * @returns {string} La URL del editor del proyecto.
+ */
+function getAppsScriptUrl() {
+  const scriptId = ScriptApp.getScriptId();
+  return `https://script.google.com/d/${scriptId}/edit`;
+}

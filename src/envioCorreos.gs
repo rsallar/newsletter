@@ -7,24 +7,34 @@
  * @throws {Error} Si no se encuentran destinatarios o si todos los envíos fallan.
  */
 function enviarNewsletter(contenidoNewsletter, noticiasCompletas, newsletterId) {
-  const correos = getRecipients(newsletterId);
+  // getRecipients ahora devuelve objetos {email, isEnabled, ...}
+  const todosLosCorreos = getRecipients(newsletterId);
   
-  if (!correos || correos.length === 0) {
-    // Lanzar un error es la mejor forma de notificar al proceso que lo llama (manual o automático)
-    // que algo fundamental falló y no se puede continuar.
-    throw new Error(`No se encontraron destinatarios. Añade correos en la sección "Destinatarios" antes de enviar.`);
+  // NUEVO: Filtrar solo los destinatarios que están activos.
+  const correosActivos = todosLosCorreos
+    .filter(r => r.isEnabled === true)
+    .map(r => r.email);
+
+  if (!correosActivos || correosActivos.length === 0) {
+    throw new Error(`No se encontraron destinatarios activos. Revisa la lista de correos o añade nuevos destinatarios.`);
   }
   
   const asunto = "Tu Newsletter Semanal";
   let erroresDeEnvio = 0;
   let enviosExitosos = 0;
   
-  for (const correo of correos) {
+  const webAppUrl = ScriptApp.getService().getUrl();
+
+  for (const correo of correosActivos) {
     try {
+      const unsubscribeUrl = `${webAppUrl}?action=unsubscribe&newsletterId=${encodeURIComponent(newsletterId)}&email=${encodeURIComponent(correo)}`;
+      const footerHtml = `<br><hr><p style="font-size: small; text-align: center; color: #888;">Si no deseas recibir más correos, puedes <a href="${unsubscribeUrl}" target="_blank">darte de baja aquí</a>.</p>`;
+      const finalHtmlBody = contenidoNewsletter + footerHtml;
+      
       MailApp.sendEmail({
         to: correo,
         subject: asunto,
-        htmlBody: contenidoNewsletter,
+        htmlBody: finalHtmlBody,
       });
       console.log(`Newsletter enviada exitosamente a ${correo} (desde Newsletter ID: ${newsletterId})`);
       enviosExitosos++;
@@ -38,11 +48,9 @@ function enviarNewsletter(contenidoNewsletter, noticiasCompletas, newsletterId) 
       console.warn(`Proceso de envío para ${newsletterId} finalizado con ${erroresDeEnvio} errores.`);
   }
   
-  // Si no se pudo enviar ningún correo, se considera un fallo total.
   if (enviosExitosos === 0 && erroresDeEnvio > 0) {
     throw new Error(`Fallo total en el envío. No se pudo enviar a ninguno de los ${erroresDeEnvio} destinatarios.`);
   }
 
-  // Si todo fue bien o hubo fallos parciales, se devuelve un resumen.
-  return `Envío completado. ${enviosExitosos} de ${correos.length} correos enviados exitosamente.`;
+  return `Envío completado. ${enviosExitosos} de ${correosActivos.length} correos enviados exitosamente.`;
 }

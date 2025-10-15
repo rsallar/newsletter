@@ -11,6 +11,8 @@
       <h1>Dashboard de Newsletters</h1>
       <div class="header-actions">
         <a id="spreadsheetLink" href="#" target="_blank" class="btn btn-outline-secondary" style="visibility: hidden;">Abrir Google Sheet</a>
+        <!-- NUEVO: Botón para abrir el editor de Apps Script -->
+        <a id="appsScriptLink" href="#" target="_blank" class="btn btn-outline-secondary" style="visibility: hidden;">Abrir Editor de Script</a>
         <button id="createNewBtn" class="btn btn-primary">Crear Nueva Newsletter</button>
       </div>
     </div>
@@ -129,7 +131,8 @@
           <div class="card-body">
             <p><strong>Keywords:</strong> <span class="keywords">${n.keywords || 'Ninguna'}</span></p>
             <p><strong>Programación:</strong> ${n.dayOfWeek} a las ${String(n.hour).padStart(2, '0')}:00</p>
-            <p><strong>Destinatarios:</strong> ${n.recipients.length}</p>
+            <!-- NUEVO: Mostrar recuento de activos vs total -->
+            <p><strong>Destinatarios:</strong> ${n.enabledRecipientsCount} de ${n.recipients.length} activos</p>
             <div id="log-${n.id}" class="log-container"></div>
           </div>
           <div class="card-footer">
@@ -163,14 +166,16 @@
     document.getElementById('newslettersDashboard').addEventListener('click', handleCardAction);
     document.getElementById('newsletterForm').addEventListener('submit', handleSaveNewsletter);
     document.getElementById('recipientForm').addEventListener('submit', handleAddRecipient);
-    document.getElementById('recipientsModal').addEventListener('click', handleDeleteRecipient);
+    document.getElementById('recipientsModal').addEventListener('click', handleRecipientListAction);
 
     // --- INITIALIZATION ---
     function initialize() {
       populateHourSelect();
       loadModels();
-      loadNewsletters(); // Carga inicial de newsletters
+      loadNewsletters();
       loadSpreadsheetUrl();
+      // NUEVO: Cargar la URL del editor de Script.
+      loadAppsScriptUrl();
     }
     
     function loadSpreadsheetUrl() {
@@ -184,10 +189,19 @@
     }
 
     /**
-     * FIX: Modificada para aceptar un callback que se ejecuta al finalizar.
-     * Esto asegura que el loader se oculte solo después de que todo haya terminado.
-     * @param {Function} [callback] - Función opcional a ejecutar al completarse.
+     * NUEVO: Llama al backend para obtener la URL del editor del proyecto
+     * y la asigna al botón correspondiente.
      */
+    function loadAppsScriptUrl() {
+      google.script.run.withSuccessHandler(url => {
+        const link = document.getElementById('appsScriptLink');
+        if (link && url) {
+          link.href = url;
+          link.style.visibility = 'visible';
+        }
+      }).getAppsScriptUrl();
+    }
+
     function loadNewsletters(callback) {
       showLoader();
       google.script.run
@@ -264,41 +278,31 @@
       showModal(newsletterModal);
     }
 
-    /**
-     * FIX: Lógica mejorada para que el loader se mantenga visible
-     * hasta que la lista de newsletters se haya recargado.
-     */
     function handleDelete(id, name) {
       if (!confirm(`¿Estás seguro de que quieres eliminar la newsletter "${name}"? Esta acción no se puede deshacer.`)) return;
-      showLoader(); // Muestra el loader
+      showLoader(); 
       google.script.run
         .withSuccessHandler(() => {
-          // No oculta el loader. Llama a loadNewsletters que lo hará al terminar.
           loadNewsletters();
         })
         .withFailureHandler(err => {
-          hideLoader(); // Oculta el loader solo si hay un error
+          hideLoader(); 
           alert('Error al eliminar: ' + err.message);
         })
         .deleteNewsletter(id);
     }
     
-    /**
-     * FIX: Lógica mejorada para mantener el loader visible durante todo el proceso
-     * de guardado y recarga de la lista.
-     */
     function handleSaveNewsletter(e) {
       e.preventDefault();
       const form = e.target;
       const submitBtn = form.querySelector('button[type="submit"]');
       submitBtn.disabled = true;
       submitBtn.textContent = 'Guardando...';
-      showLoader(); // Muestra el loader al inicio del todo.
+      showLoader();
 
       const config = Object.fromEntries(new FormData(form));
       config.isEnabled = document.getElementById('isEnabled').checked;
 
-      // Esta función se ejecutará al final de todo para reactivar el botón.
       const onComplete = () => {
         submitBtn.disabled = false;
         submitBtn.textContent = 'Guardar Cambios';
@@ -307,37 +311,30 @@
       google.script.run
         .withSuccessHandler(() => {
           hideModal(newsletterModal);
-          // Llama a recargar la lista y le pasa 'onComplete' para que se ejecute al final.
-          // loadNewsletters se encargará de ocultar el loader por sí mismo.
           loadNewsletters(onComplete);
         })
         .withFailureHandler(err => {
           alert('Error al guardar: ' + err.message);
-          hideLoader(); // Oculta el loader si falla el guardado.
-          onComplete(); // Y reactiva el botón.
+          hideLoader();
+          onComplete();
         })
         .saveNewsletter(config);
     }
 
     function handleToggleStatus(id, checkbox) {
-      checkbox.disabled = true; // Desactivar mientras se procesa
+      checkbox.disabled = true; 
       const label = checkbox.closest('.switch');
 
       google.script.run
         .withSuccessHandler(newStatus => {
-          // Actualizar el estado en el objeto global AppState
           const newsletter = AppState.newsletters.find(n => n.id === id);
-          if (newsletter) {
-            newsletter.isEnabled = newStatus;
-          }
-          // Actualizar visualmente el interruptor
+          if (newsletter) newsletter.isEnabled = newStatus;
           checkbox.checked = newStatus; 
           if(label) label.title = newStatus ? 'Activada' : 'Desactivada';
           checkbox.disabled = false;
         })
         .withFailureHandler(err => {
           alert('Error al cambiar el estado: ' + err.message);
-          // Revertir el estado del checkbox en caso de error
           checkbox.checked = !checkbox.checked; 
           if(label) label.title = checkbox.checked ? 'Activada' : 'Desactivada';
           checkbox.disabled = false;
@@ -349,20 +346,31 @@
     function handleRecipients(newsletter) {
       document.getElementById('recipientsModalTitle').textContent = `Destinatarios de: ${newsletter.name}`;
       document.getElementById('recipientNewsletterId').value = newsletter.id;
-      renderRecipients(newsletter.id, newsletter.recipients);
+      renderRecipients(newsletter.id);
       showModal(recipientsModal);
     }
-
-    function renderRecipients(id, recipients) {
+    
+    function renderRecipients(newsletterId) {
       const list = document.getElementById('recipientList');
-      if(recipients.length === 0) {
-        list.innerHTML = '<p>No hay destinatarios en esta lista.</p>';
+      const nl = AppState.newsletters.find(n => n.id === newsletterId);
+      
+      if(!nl || nl.recipients.length === 0) {
+        list.innerHTML = '<li><p>No hay destinatarios en esta lista.</p></li>';
         return;
       }
-      list.innerHTML = recipients.map(email => `
-        <li>
-          <span>${email}</span>
-          <button class="btn btn-danger btn-sm" data-action="delete-recipient" data-email="${email}">Eliminar</button>
+      list.innerHTML = nl.recipients.map(recipient => `
+        <li class="${recipient.isEnabled ? '' : 'disabled'}">
+          <div class="recipient-info">
+            <span>${recipient.email}</span>
+            ${!recipient.isEnabled ? `<small class="reason">${recipient.unsubscribeReason || 'Desactivado'}</small>` : ''}
+          </div>
+          <div class="recipient-actions">
+            <label class="switch switch-sm" title="${recipient.isEnabled ? 'Suscrito' : 'No suscrito'}">
+              <input type="checkbox" data-action="toggle-recipient-status" data-email="${recipient.email}" ${recipient.isEnabled ? 'checked' : ''}>
+              <span class="slider round"></span>
+            </label>
+            <button class="btn btn-danger btn-sm" data-action="delete-recipient" data-email="${recipient.email}" title="Eliminar permanentemente">×</button>
+          </div>
         </li>
       `).join('');
     }
@@ -378,54 +386,74 @@
 
       submitBtn.disabled = true;
 
-      const onComplete = () => {
-        submitBtn.disabled = false;
-      };
-
       google.script.run
         .withSuccessHandler(() => {
           emailInput.value = '';
           const nl = AppState.newsletters.find(n => n.id === newsletterId);
-          nl.recipients.push(email);
-          renderRecipients(newsletterId, nl.recipients);
-          renderDashboard(); // To update recipient count
-          onComplete();
+          nl.recipients.push({ email: email, isEnabled: true, unsubscribeReason: '' });
+          nl.enabledRecipientsCount++;
+          renderRecipients(newsletterId);
+          renderDashboard(); 
+          submitBtn.disabled = false;
         })
         .withFailureHandler(err => {
           alert(err.message);
-          onComplete();
+          submitBtn.disabled = false;
         })
         .addRecipient(newsletterId, email);
     }
+    
+    function handleRecipientListAction(e) {
+        const action = e.target.dataset.action;
+        if (!action) return;
 
-    function handleDeleteRecipient(e) {
-      if (e.target.dataset.action !== 'delete-recipient') return;
-      const deleteBtn = e.target;
-      const newsletterId = document.getElementById('recipientNewsletterId').value;
-      const email = e.target.dataset.email;
-      
-      deleteBtn.disabled = true;
-      deleteBtn.textContent = '...';
-      
-      const onComplete = () => {
-          deleteBtn.disabled = false;
-          deleteBtn.textContent = 'Eliminar';
-      };
+        const newsletterId = document.getElementById('recipientNewsletterId').value;
+        const email = e.target.dataset.email;
+        
+        if (action === 'delete-recipient') {
+            if (!confirm(`¿Seguro que quieres eliminar permanentemente a ${email}?`)) return;
 
-      google.script.run
-        .withSuccessHandler(() => {
-          const nl = AppState.newsletters.find(n => n.id === newsletterId);
-          nl.recipients = nl.recipients.filter(r => r !== email);
-          renderRecipients(newsletterId, nl.recipients);
-          renderDashboard(); // To update recipient count
-          onComplete();
-        })
-        .withFailureHandler(err => {
-            alert(err.message);
-            onComplete();
-        })
-        .deleteRecipient(newsletterId, email);
+            e.target.disabled = true;
+            google.script.run
+                .withSuccessHandler(() => {
+                    const nl = AppState.newsletters.find(n => n.id === newsletterId);
+                    const recipient = nl.recipients.find(r => r.email === email);
+                    if (recipient.isEnabled) nl.enabledRecipientsCount--;
+                    nl.recipients = nl.recipients.filter(r => r.email !== email);
+                    renderRecipients(newsletterId);
+                    renderDashboard();
+                })
+                .withFailureHandler(err => {
+                    alert(err.message);
+                    e.target.disabled = false;
+                })
+                .deleteRecipient(newsletterId, email);
+        }
+
+        if (action === 'toggle-recipient-status') {
+            const checkbox = e.target;
+            checkbox.disabled = true;
+            google.script.run
+                .withSuccessHandler(newStatus => {
+                    const nl = AppState.newsletters.find(n => n.id === newsletterId);
+                    const recipient = nl.recipients.find(r => r.email === email);
+                    recipient.isEnabled = newStatus;
+                    if (newStatus) nl.enabledRecipientsCount++;
+                    else nl.enabledRecipientsCount--;
+                    recipient.unsubscribeReason = newStatus ? '' : 'Desactivado por el administrador';
+                    renderRecipients(newsletterId);
+                    renderDashboard();
+                    checkbox.disabled = false;
+                })
+                .withFailureHandler(err => {
+                    alert(err.message);
+                    checkbox.checked = !checkbox.checked;
+                    checkbox.disabled = false;
+                })
+                .toggleRecipientStatus(newsletterId, email);
+        }
     }
+
 
     // --- MANUAL RUN LOGIC ---
     function handleRunManual(id, btn) {
@@ -472,6 +500,7 @@
         })
         .then(finalMessage => {
           addLog(finalMessage, false, true);
+          loadNewsletters();
         })
         .catch(error => {
           addLog(`ERROR: ${error.message}`, true);

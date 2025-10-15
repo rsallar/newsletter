@@ -1,7 +1,8 @@
 const NEWSLETTERS_SHEET_NAME = 'Newsletters';
 const RECIPIENTS_SHEET_NAME = 'Recipients';
 const NEWSLETTER_HEADERS = ['ID', 'Name', 'IsEnabled', 'Keywords', 'AI_Model', 'Prompt', 'DayOfWeek', 'Hour'];
-const RECIPIENTS_HEADERS = ['NewsletterID', 'Email'];
+// NUEVO: Cabeceras actualizadas para la hoja de destinatarios.
+const RECIPIENTS_HEADERS = ['NewsletterID', 'Email', 'IsEnabled', 'UnsubscribeReason'];
 const MASTER_TRIGGER_HANDLER = 'masterTriggerHandler';
 
 /**
@@ -17,12 +18,17 @@ function _getSheetAndEnsureHeaders(spreadsheet, sheetName, headers) {
     sheet = spreadsheet.insertSheet(sheetName);
     sheet.appendRow(headers);
     sheet.setFrozenRows(1);
-    if (sheetName === NEWSLETTERS_SHEET_NAME) {
-      sheet.getRange('C:C').insertCheckboxes(); // Columna IsEnabled
+    // NUEVO: Añadir checkboxes a AMBAS hojas en su columna 'IsEnabled'.
+    if (sheetName === NEWSLETTERS_SHEET_NAME || sheetName === RECIPIENTS_SHEET_NAME) {
+      const isEnabledColIndex = headers.indexOf('IsEnabled') + 1;
+      if (isEnabledColIndex > 0) {
+        sheet.getRange(2, isEnabledColIndex, sheet.getMaxRows() - 1, 1).insertCheckboxes();
+      }
     }
   }
   return sheet;
 }
+
 
 /** Genera un ID corto y único. */
 function _generateId() {
@@ -42,6 +48,13 @@ function _getAllNewsletters() {
 
     const newsletterData = newslettersSheet.getDataRange().getValues();
     const recipientData = recipientsSheet.getDataRange().getValues();
+    
+    // Convertimos las cabeceras a un objeto para un acceso más fácil
+    const recipientHeaders = recipientData[0];
+    const recipientMap = recipientHeaders.reduce((acc, header, i) => {
+        acc[header] = i;
+        return acc;
+    }, {});
 
     const newslettersMap = {};
 
@@ -49,30 +62,33 @@ function _getAllNewsletters() {
     for (let i = 1; i < newsletterData.length; i++) {
         const row = newsletterData[i];
         
-        if (!row[0] || String(row[0]).trim() === '') {
-            continue;
-        }
+        if (!row[0] || String(row[0]).trim() === '') continue;
         
-        const newsletter = {
-            id: row[0],
-            name: row[1],
-            isEnabled: row[2] === true,
-            keywords: row[3],
-            model: row[4],
-            prompt: row[5],
-            dayOfWeek: row[6],
-            hour: row[7],
-            recipients: []
+        newslettersMap[row[0]] = {
+            id: row[0], name: row[1], isEnabled: row[2] === true,
+            keywords: row[3], model: row[4], prompt: row[5],
+            dayOfWeek: row[6], hour: row[7],
+            recipients: [], // Ahora guardará objetos completos
+            enabledRecipientsCount: 0 // Nuevo contador
         };
-        newslettersMap[newsletter.id] = newsletter;
     }
 
     // Procesar destinatarios y asociarlos
     for (let i = 1; i < recipientData.length; i++) {
-        const newsletterId = recipientData[i][0];
-        const email = recipientData[i][1];
+        const row = recipientData[i];
+        const newsletterId = row[recipientMap.NewsletterID];
+        
         if (newslettersMap[newsletterId]) {
-            newslettersMap[newsletterId].recipients.push(email);
+            const isEnabled = row[recipientMap.IsEnabled] === true;
+            const recipient = {
+                email: row[recipientMap.Email],
+                isEnabled: isEnabled,
+                unsubscribeReason: row[recipientMap.UnsubscribeReason] || ''
+            };
+            newslettersMap[newsletterId].recipients.push(recipient);
+            if (isEnabled) {
+                newslettersMap[newsletterId].enabledRecipientsCount++;
+            }
         }
     }
     
@@ -275,7 +291,8 @@ function addRecipient(newsletterId, email) {
 
   if (isDuplicate) throw new Error('El correo ya existe para esta newsletter.');
 
-  sheet.appendRow([newsletterId, email]);
+  // NUEVO: Añadir la fila con los nuevos valores por defecto (activado y sin razón).
+  sheet.appendRow([newsletterId, email, true, '']);
   return `Correo '${email}' agregado.`;
 }
 
@@ -293,16 +310,77 @@ function deleteRecipient(newsletterId, email) {
   for (let i = data.length - 1; i > 0; i--) {
     if (data[i][0] === newsletterId && data[i][1].trim().toLowerCase() === email.trim().toLowerCase()) {
       sheet.deleteRow(i + 1);
-      return `Correo '${email}' eliminado.`;
+      return `Correo '${email}' eliminado permanentemente.`;
     }
   }
   throw new Error('No se encontró el correo para eliminar.');
 }
 
 /**
+ * NUEVO: Desuscribe a un destinatario, marcándolo como inactivo.
+ * @param {string} newsletterId - El ID de la newsletter.
+ * @param {string} email - El correo del destinatario.
+ * @returns {string} Mensaje de confirmación.
+ */
+function unsubscribeRecipient(newsletterId, email) {
+  const spreadsheet = getProjectSpreadsheet();
+  const sheet = _getSheetAndEnsureHeaders(spreadsheet, RECIPIENTS_SHEET_NAME, RECIPIENTS_HEADERS);
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const idCol = headers.indexOf('NewsletterID');
+  const emailCol = headers.indexOf('Email');
+  const isEnabledCol = headers.indexOf('IsEnabled');
+  const reasonCol = headers.indexOf('UnsubscribeReason');
+
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][idCol] === newsletterId && data[i][emailCol].trim().toLowerCase() === email.trim().toLowerCase()) {
+      const row = i + 1;
+      sheet.getRange(row, isEnabledCol + 1).setValue(false);
+      sheet.getRange(row, reasonCol + 1).setValue('Desuscrito por el usuario');
+      return `El correo ${email} ha sido desuscrito.`;
+    }
+  }
+  throw new Error('No se encontró el destinatario para desuscribir.');
+}
+
+/**
+ * NUEVO: Cambia el estado de un destinatario (lo activa/desactiva).
+ * @param {string} newsletterId - El ID de la newsletter.
+ * @param {string} email - El correo del destinatario.
+ * @returns {boolean} El nuevo estado del destinatario.
+ */
+function toggleRecipientStatus(newsletterId, email) {
+  const spreadsheet = getProjectSpreadsheet();
+  const sheet = _getSheetAndEnsureHeaders(spreadsheet, RECIPIENTS_SHEET_NAME, RECIPIENTS_HEADERS);
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const idCol = headers.indexOf('NewsletterID');
+  const emailCol = headers.indexOf('Email');
+  const isEnabledCol = headers.indexOf('IsEnabled');
+  const reasonCol = headers.indexOf('UnsubscribeReason');
+
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][idCol] === newsletterId && data[i][emailCol].trim().toLowerCase() === email.trim().toLowerCase()) {
+      const row = i + 1;
+      const currentStatus = data[i][isEnabledCol] === true;
+      const newStatus = !currentStatus;
+      
+      sheet.getRange(row, isEnabledCol + 1).setValue(newStatus);
+      // Si se reactiva, limpiar el motivo. Si se desactiva, poner un motivo genérico.
+      const reason = newStatus ? '' : 'Desactivado por el administrador';
+      sheet.getRange(row, reasonCol + 1).setValue(reason);
+      
+      return newStatus;
+    }
+  }
+  throw new Error('No se encontró el destinatario para cambiar su estado.');
+}
+
+
+/**
  * Obtiene los destinatarios de una newsletter específica.
  * @param {string} newsletterId El ID de la newsletter.
- * @returns {Array<string>} Lista de correos.
+ * @returns {Array<Object>} Lista de objetos de destinatarios.
  */
 function getRecipients(newsletterId) {
     const spreadsheet = getProjectSpreadsheet();
@@ -313,10 +391,20 @@ function getRecipients(newsletterId) {
         return [];
     }
     const targetId = String(newsletterId).trim();
+    const data = sheet.getDataRange().getValues();
+    const headers = data.shift(); // Quita las cabeceras
+    const idCol = headers.indexOf('NewsletterID');
+    const emailCol = headers.indexOf('Email');
+    const isEnabledCol = headers.indexOf('IsEnabled');
+    const reasonCol = headers.indexOf('UnsubscribeReason');
 
-    return sheet.getDataRange().getValues()
-        .filter(row => row[0] && String(row[0]).trim() === targetId)
-        .map(row => row[1]);
+    return data
+        .filter(row => row[idCol] && String(row[idCol]).trim() === targetId)
+        .map(row => ({
+            email: row[emailCol],
+            isEnabled: row[isEnabledCol] === true,
+            unsubscribeReason: row[reasonCol] || ''
+        }));
 }
 
 
