@@ -353,22 +353,37 @@ function setupMainTrigger() {
  * que deban enviarse y lanza el proceso para cada una.
  */
 function masterTriggerHandler() {
-  const now = new Date();
-  const currentDay = Utilities.formatDate(now, Session.getScriptTimeZone(), 'EEEE').toUpperCase();
-  const currentHour = now.getHours();
+  const now = new Date();  const scriptTimeZone = Session.getScriptTimeZone(); // Obtiene la zona horaria del proyecto ('Europe/Madrid')
 
-  console.log(`Master trigger ejecutado. Día: ${currentDay}, Hora: ${currentHour}`);
+  // *** FIX DEFINITIVO: Usar Utilities.formatDate para obtener día y hora en la ZONA HORARIA CORRECTA ***
+  // 'u' devuelve el día de la semana como número (1=Lunes, ..., 7=Domingo), independiente del idioma.
+  // 'H' devuelve la hora en formato 24h (0-23), independiente de la zona horaria del servidor.
+  const currentDayOfWeekNumber = parseInt(Utilities.formatDate(now, scriptTimeZone, 'u'), 10);
+  const currentHour = parseInt(Utilities.formatDate(now, scriptTimeZone, 'H'), 10);
 
-  // FIX: Llamamos a la nueva función _getAllNewsletters() que solo obtiene datos.
-  // La versión anterior llamaba a getNewslettersWithData(), que a su vez borraba y
-  // recreaba el trigger, causando que la ejecución del cron fuera inestable.
+  // Este mapeo corresponde al formato 'u' (Lunes=1, ..., Domingo=7)
+  const dayMapping = {
+    "MONDAY": 1,
+    "TUESDAY": 2,
+    "WEDNESDAY": 3,
+    "THURSDAY": 4,
+    "FRIDAY": 5,
+    "SATURDAY": 6,
+    "SUNDAY": 7 
+  };
+
+  console.log(`Master trigger ejecutado. Zona Horaria: ${scriptTimeZone}. Día numérico (Lunes=1): ${currentDayOfWeekNumber}, Hora: ${currentHour}`);
+
   const newsletters = _getAllNewsletters();
   
-  const dueNewsletters = newsletters.filter(n => 
-    n.isEnabled &&
-    n.dayOfWeek.toUpperCase() === currentDay &&
-    Number(n.hour) === currentHour
-  );
+  const dueNewsletters = newsletters.filter(n => {
+    const scheduledDayNumber = dayMapping[n.dayOfWeek.toUpperCase()];
+    
+    // La newsletter se debe ejecutar si está activada, el día coincide y la hora coincide.
+    return n.isEnabled &&
+           scheduledDayNumber === currentDayOfWeekNumber &&
+           Number(n.hour) === currentHour;
+  });
 
   if (dueNewsletters.length > 0) {
     console.log(`Se encontraron ${dueNewsletters.length} newsletters para enviar.`);
@@ -384,6 +399,7 @@ function masterTriggerHandler() {
     console.log("No hay newsletters programadas para esta hora.");
   }
 }
+
 
 /** Elimina todos los triggers del proyecto. */
 function deleteAllProjectTriggers() {
